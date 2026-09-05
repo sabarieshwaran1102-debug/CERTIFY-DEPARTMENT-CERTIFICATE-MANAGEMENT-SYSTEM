@@ -1,0 +1,6 @@
+# This directory stores uploaded certificates
+# Subdirectories are organized by month (YYYY/MM/)
+# Certificate files are named: {register_number}_{registration_number}.{ext}
+# Example: 22AD001_OD-0001.pdf
+
+# This .gitkeep file ensures the directory is tracked by git
