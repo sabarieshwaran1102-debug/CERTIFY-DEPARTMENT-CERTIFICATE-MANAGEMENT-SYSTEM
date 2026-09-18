@@ -45,8 +45,18 @@ CREATE SEQUENCE IF NOT EXISTS registration_number_seq
     INCREMENT BY 1;
 
 -- Step 5: Add UNIQUE constraint to registration_number
-ALTER TABLE od_records
-    ADD CONSTRAINT IF NOT EXISTS unique_registration_number UNIQUE(registration_number);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'unique_registration_number'
+          AND conrelid = 'od_records'::regclass
+    ) THEN
+        ALTER TABLE od_records
+            ADD CONSTRAINT unique_registration_number UNIQUE(registration_number);
+    END IF;
+END $$;
 
 -- Step 6: Create certificates table (foreign keys to od_records and students)
 CREATE TABLE IF NOT EXISTS certificates (

@@ -1,5 +1,9 @@
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, _next) => {
     console.error('Error:', err);
+
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'Certificate file exceeds the 5 MB limit' });
+    }
 
     // Known error types
     if (err.type === 'VALIDATION_ERROR') {

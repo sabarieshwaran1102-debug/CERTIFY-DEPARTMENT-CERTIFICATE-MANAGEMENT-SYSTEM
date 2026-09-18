@@ -1,9 +1,23 @@
 import { AppError } from './errorHandler.js';
 
+export const MANAGEMENT_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor'];
+export const GLOBAL_MANAGEMENT_ROLES = ['super_admin', 'admin'];
+
+export const requireManagementRole = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user?.role)) {
+            return next(new AppError('Insufficient permissions for management action', 'FORBIDDEN', 403));
+        }
+        return next();
+    };
+};
+
+export const requireGlobalManagement = requireManagementRole(...GLOBAL_MANAGEMENT_ROLES);
+
 export const requireStudentOwnership = (fieldName = 'student_id') => {
     return (req, res, next) => {
         if (req.user.role !== 'student') {
-            throw new AppError('Only students can perform this action', 'FORBIDDEN', 403);
+            return next(new AppError('Only students can perform this action', 'FORBIDDEN', 403));
         }
 
         // Extract student_id from different sources
@@ -20,27 +34,27 @@ export const requireStudentOwnership = (fieldName = 'student_id') => {
         }
 
         if (!resourceStudentId) {
-            throw new AppError('Resource not found', 'NOT_FOUND', 404);
+            return next(new AppError('Resource not found', 'NOT_FOUND', 404));
         }
 
         if (String(resourceStudentId) !== String(req.user.student_id)) {
-            throw new AppError('You do not have access to this resource', 'FORBIDDEN', 403);
+            return next(new AppError('You do not have access to this resource', 'FORBIDDEN', 403));
         }
 
-        next();
+        return next();
     };
 };
 
 export const requireStudentRepRole = (req, res, next) => {
     if (req.user.role !== 'student_representative') {
-        throw new AppError('Only student representatives can perform this action', 'FORBIDDEN', 403);
+        return next(new AppError('Only student representatives can perform this action', 'FORBIDDEN', 403));
     }
-    next();
+    return next();
 };
 
 export const requireFacultyRole = (req, res, next) => {
     if (req.user.role !== 'coordinating_faculty') {
-        throw new AppError('Only coordinating faculty can perform this action', 'FORBIDDEN', 403);
+        return next(new AppError('Only coordinating faculty can perform this action', 'FORBIDDEN', 403));
     }
-    next();
+    return next();
 };

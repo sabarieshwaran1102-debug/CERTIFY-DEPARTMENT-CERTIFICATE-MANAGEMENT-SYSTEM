@@ -1,6 +1,6 @@
 import express from 'express';
-import { verifyToken, requireRole } from '../middleware/auth.js';
-import { requireStudentRepRole, requireFacultyRole } from '../middleware/authorization.js';
+import { verifyToken } from '../middleware/auth.js';
+import { requireStudentRepRole } from '../middleware/authorization.js';
 import ODRecord from '../models/ODRecord.js';
 import Student from '../models/Student.js';
 import Certificate from '../models/Certificate.js';
@@ -91,7 +91,7 @@ router.get('/:odId', verifyToken, async (req, res, next) => {
         }
 
         // Students can only view their own OD records
-        if (role === 'student' && odRecord.student_id !== student_id) {
+        if (role === 'student' && String(odRecord.student_id) !== String(student_id)) {
             throw new AppError('You do not have access to this record', 'FORBIDDEN', 403);
         }
 

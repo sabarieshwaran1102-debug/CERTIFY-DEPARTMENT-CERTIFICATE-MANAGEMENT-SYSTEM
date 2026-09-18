@@ -41,7 +41,13 @@ class ODRecord {
    * Get all OD records (for Student Rep and Faculty)
    */
   static async getAll(filters = {}, limit = 50, offset = 0) {
-    let query = 'SELECT * FROM od_records WHERE 1=1';
+    let query = `SELECT od_records.*, students.register_number, students.name AS student_name,
+                          students.department, students.year, students.section,
+                          od_records.class_id AS historical_class_id,
+                          od_records.academic_year_id AS historical_academic_year_id
+                 FROM od_records
+                 JOIN students ON students.student_id = od_records.student_id
+                 WHERE 1=1`;
     const values = [];
     let paramCount = 1;
 
@@ -54,10 +60,13 @@ class ODRecord {
       values.push(filters.status);
     }
     if (filters.department) {
-      query += ` AND od_records.student_id IN (
-        SELECT student_id FROM students WHERE department = $${paramCount++}
-      )`;
+      query += ` AND students.department = $${paramCount++}`;
       values.push(filters.department);
+    }
+    if (filters.month) {
+      query += ` AND od_records.created_at >= $${paramCount++}::date
+                 AND od_records.created_at < ($${paramCount - 1}::date + INTERVAL '1 month')`;
+      values.push(`${filters.month}-01`);
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${paramCount++} OFFSET $${paramCount++}`;
@@ -87,8 +96,11 @@ class ODRecord {
 
       // Insert OD record
       const result = await client.query(
-        `INSERT INTO od_records (student_id, registration_number, event_details, created_by, od_status)
-         VALUES ($1, $2, $3, $4, 'active')
+        `INSERT INTO od_records (student_id, registration_number, event_details, created_by, od_status,
+                                 class_id, academic_year_id)
+         SELECT s.student_id, $2, $3, $4, 'active', s.class_id, s.academic_year_id
+         FROM students s
+         WHERE s.student_id = $1
          RETURNING *`,
         [studentId, registrationNumber, eventDetails, createdBy]
       );

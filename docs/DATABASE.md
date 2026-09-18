@@ -11,6 +11,9 @@ PostgreSQL database with four main tables:
 Plus one sequence for atomic registration number generation:
 - `registration_number_seq` - Global counter for registration numbers
 
+Phase 1 adds an organizational hierarchy without removing the v1.3 text fields:
+`departments` -> `academic_years` -> `classes` -> `students`.
+
 ---
 
 ## Table: students
@@ -27,6 +30,9 @@ Stores student information.
 | section | VARCHAR(50) | | Section/section identifier |
 | created_at | TIMESTAMP | DEFAULT NOW() | Record creation timestamp |
 | updated_at | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
+| class_id | BIGINT | NOT NULL, FK -> classes(id) | Current organizational class |
+| academic_year_id | BIGINT | FK -> academic_years(id) | Academic year associated with the student class |
+| status | VARCHAR(20) | NOT NULL, CHECK | `ACTIVE`, `INACTIVE`, `GRADUATED`, or `TRANSFERRED` |
 
 **Indexes**:
 - idx_students_department: On (department)
@@ -35,6 +41,30 @@ Stores student information.
 **Primary Key**: student_id
 
 **Unique Constraints**: register_number
+
+The original `department`, `year`, and `section` columns remain for compatibility with existing reports and API consumers. New student records should use `class_id`; the migration backfills existing rows into a `Legacy` academic year and creates matching classes.
+
+## Table: departments
+
+Stores departments for a multi-department deployment. `code` is unique and is used as the stable short identifier.
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | BIGSERIAL | PRIMARY KEY |
+| name | VARCHAR(100) | NOT NULL |
+| code | VARCHAR(30) | NOT NULL, UNIQUE |
+| active | BOOLEAN | NOT NULL, DEFAULT TRUE |
+| created_at / updated_at | TIMESTAMP | DEFAULT NOW() |
+
+## Table: academic_years
+
+Stores named academic periods such as `2026-27`. Names are unique and optional dates are checked for valid order.
+
+## Table: classes
+
+Stores a department/year-of-study/section grouping. There is no student capacity column or limit.
+
+The unique key is `(department_id, academic_year_id, year_of_study, section)`. `display_name` stores values such as `ADS-A`, `CSE-A`, or `ECE-A`.
 
 ---
 
@@ -53,7 +83,7 @@ Stores authentication and role information.
 | updated_at | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
 
 **Foreign Keys**:
-- student_id → students(student_id) ON DELETE SET NULL
+- student_id → students(student_id) ON DELETE RESTRICT
 
 **Primary Key**: user_id
 
@@ -100,9 +130,11 @@ Stores On-Duty records with system-generated registration numbers.
 | created_by | VARCHAR(100) | | Student rep who registered OD |
 | updated_at | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
 | od_status | VARCHAR(50) | DEFAULT 'active' | Status: 'active', 'cancelled' (extensible) |
+| class_id | BIGINT | FK -> classes(id) | Class snapshot at OD creation |
+| academic_year_id | BIGINT | FK -> academic_years(id) | Academic-year snapshot at OD creation |
 
 **Foreign Keys**:
-- student_id → students(student_id) ON DELETE CASCADE
+- student_id → students(student_id) ON DELETE RESTRICT
 
 **Indexes**:
 - idx_od_records_student_id: On (student_id)
@@ -141,8 +173,8 @@ Stores certificate submission records.
 | updated_at | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
 
 **Foreign Keys**:
-- od_id → od_records(od_id) ON DELETE CASCADE
-- student_id → students(student_id) ON DELETE CASCADE
+- od_id → od_records(od_id) ON DELETE RESTRICT
+- student_id → students(student_id) ON DELETE RESTRICT
 
 **Indexes**:
 - idx_certificates_student_id: On (student_id)
@@ -169,6 +201,8 @@ Stores certificate submission records.
 students.student_id ← od_records.student_id (NOT NULL)
 One student can have many OD records.
 ```
+
+OD records retain `class_id` and `academic_year_id` copied from the student when the OD is created. This prevents a later promotion or transfer from changing the historical organizational context of an existing OD.
 
 ### OD Record → Certificate (1:0..1)
 ```
@@ -210,6 +244,12 @@ The schema is created via SQL migration:
 
 **File**: `backend/src/migrations/001_initial_schema.sql`
 
+Phase 1 is additive and is implemented by:
+
+**File**: `backend/src/migrations/004_organizational_architecture.sql`
+
+The migration creates departments, academic years, and classes; adds class, academic-year, and lifecycle fields to students; backfills existing students into a `Legacy` academic year; and snapshots class/year references on existing OD records. It preserves students, users, OD records, and certificates. It is safe to rerun because new objects and constraints use existence checks or `ON CONFLICT` handling.
+
 **To run migration**:
 ```bash
 cd backend
@@ -231,8 +271,8 @@ The migration creates:
 
 **Important**: Historical records are NOT automatically deleted.
 
-- Deleted student records: Cascade delete OD and certificates (orphaned data cleanup)
-- Deleted OD records: Cascade delete associated certificate
+- Deleted student records: Restricted while related users, OD records, or certificates exist
+- Deleted OD records: Restricted while an associated certificate exists
 - Deleted certificates: Allowed (certificate submission can be deleted)
 
 **Note**: Future data retention/archival policies are pending department confirmation.

@@ -14,6 +14,15 @@ See the DESIGN_FINAL.md in this directory for the full detailed design.
 
 ## Key Design Decisions
 
+### 0. Organizational Hierarchy (Phase 1)
+- Departments, academic years, and classes are first-class database entities.
+- A class is uniquely identified by department, academic year, year of study, and section.
+- Student capacity is intentionally unconstrained.
+- Existing student text fields remain for v1.3 compatibility while `class_id` becomes the canonical organizational relationship.
+- Student lifecycle is non-destructive through `ACTIVE`, `INACTIVE`, `GRADUATED`, and `TRANSFERRED` statuses.
+- OD records copy class and academic-year references at creation so promotion or transfer does not rewrite history.
+- Existing rows are preserved by migration `004_organizational_architecture.sql` and mapped to a `Legacy` academic year.
+
 ### 1. Registration Number Generation
 - PostgreSQL sequence for atomic, concurrency-safe generation
 - Format: OD-0001, OD-0002, OD-0003, ...
@@ -63,9 +72,9 @@ The following items require department confirmation before implementation:
    - Questions: What is deadline? How calculated? Consequences?
    - Implementation: Database field exists (submission_month), logic configurable
 
-5. **Department Scope**
-   - Questions: Single department or multi-department system?
-   - Implementation: Department fields present, no hard restrictions
+6. **Department Scope**
+   - The Phase 1 schema supports multiple departments through the `departments` table and class relationships.
+   - API scoping and department administration remain outside Phase 1.
 
 6. **Edit Authority**
    - Questions: Can Student Reps edit OD? Can Faculty correct? Audit log?
@@ -96,6 +105,13 @@ The following items require department confirmation before implementation:
 ## Development Status
 
 **Phase 0**: Project Setup ✅ COMPLETE
-**Phases 1-10**: Pending approval to proceed
+**Phase 1**: Database and authentication framework ✅ COMPLETE
+**Phase 2**: Student certificate submission ✅ COMPLETE
+**Phase 3**: Student Representative OD registration ✅ COMPLETE
+**Phase 4**: Coordinating Faculty records and reporting ✅ COMPLETE
+**Frontend Phases 5-7**: Authentication, Student, and Student Representative interfaces ✅ COMPLETE
+**Faculty frontend**: Monthly records and reporting interface ✅ COMPLETE
+
+Faculty reporting is read-only: it identifies missing certificates and provides access to existing submitted files without verification, approval, rejection, or participation decisions.
 
 See README.md for development phases and timeline.

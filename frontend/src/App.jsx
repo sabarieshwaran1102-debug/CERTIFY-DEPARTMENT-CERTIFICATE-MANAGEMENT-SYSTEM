@@ -11,6 +11,8 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentRepDashboard from './pages/StudentRepDashboard';
 import FacultyDashboard from './pages/FacultyDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import ManagementDashboard from './pages/ManagementDashboard';
 
 function App() {
     return (
@@ -33,6 +35,14 @@ function App() {
                     <Route 
                         path="/faculty/*" 
                         element={<ProtectedRoute requiredRole="coordinating_faculty"><FacultyDashboard /></ProtectedRoute>} 
+                    />
+                    <Route
+                        path="/admin/*"
+                        element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>}
+                    />
+                    <Route
+                        path="/management/*"
+                        element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'coordinating_faculty', 'class_advisor']}><ManagementDashboard /></ProtectedRoute>}
                     />
                     
                     {/* Default and 404 Routes */}

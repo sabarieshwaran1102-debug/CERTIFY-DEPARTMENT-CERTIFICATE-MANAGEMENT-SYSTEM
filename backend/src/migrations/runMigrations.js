@@ -10,12 +10,15 @@ const runMigrations = async () => {
     try {
         console.log('Running database migrations...');
 
-        // Read and execute migration file
-        const migrationPath = path.join(__dirname, '001_initial_schema.sql');
-        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        const migrationFiles = fs.readdirSync(__dirname)
+            .filter((file) => /^\d+_.*\.sql$/.test(file))
+            .sort();
 
-        await client.query(migrationSQL);
-        console.log('✓ Migration 001_initial_schema completed successfully');
+        for (const migrationFile of migrationFiles) {
+            const migrationSQL = fs.readFileSync(path.join(__dirname, migrationFile), 'utf8');
+            await client.query(migrationSQL);
+            console.log(`✓ Migration ${migrationFile} completed successfully`);
+        }
 
         console.log('✓ All migrations completed successfully');
         process.exit(0);

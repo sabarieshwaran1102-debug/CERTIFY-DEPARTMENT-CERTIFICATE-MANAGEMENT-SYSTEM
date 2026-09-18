@@ -3,9 +3,10 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const storagePath = process.env.STORAGE_PATH || path.join(__dirname, '../../storage/certificates');
+const defaultStoragePath = path.resolve(__dirname, '../../storage/certificates');
+const storagePath = path.resolve(process.env.STORAGE_PATH || defaultStoragePath);
 
-// Ensure storage directory exists
+// Ensure storage directory exists outside the public web root
 if (!fs.existsSync(storagePath)) {
     fs.mkdirSync(storagePath, { recursive: true });
 }

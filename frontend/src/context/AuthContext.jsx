@@ -1,4 +1,5 @@
 import { createContext, useState, useCallback, useEffect } from 'react';
+import authService from '../services/authService';
 
 export const AuthContext = createContext();
 
@@ -8,19 +9,26 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
 
     useEffect(() => {
-        // Check if user is already logged in
         const storedToken = localStorage.getItem('token');
         if (storedToken) {
             setToken(storedToken);
-            // TODO: Verify token with backend in Phase 5
+            authService.getCurrentUser()
+                .then((currentUser) => setUser(currentUser))
+                .catch(() => {
+                    localStorage.removeItem('token');
+                    setToken(null);
+                    setUser(null);
+                })
+                .finally(() => setLoading(false));
+            return;
         }
         setLoading(false);
     }, []);
 
-    const login = useCallback((token, user) => {
-        localStorage.setItem('token', token);
-        setToken(token);
-        setUser(user);
+    const login = useCallback((tokenValue, userData) => {
+        localStorage.setItem('token', tokenValue);
+        setToken(tokenValue);
+        setUser(userData);
     }, []);
 
     const logout = useCallback(() => {

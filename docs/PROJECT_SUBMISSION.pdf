@@ -1,0 +1,345 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 3877 >>
+stream
+BT
+/F2 18 Tf 1 0 0 1 54 790.0 Tm (Certificate Management System v1.3) Tj
+/F1 9 Tf 1 0 0 1 54 768.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 755.0 Tm (Project Submission Document) Tj
+/F1 9 Tf 1 0 0 1 54 738.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 725.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 712.0 Tm (Submission date: 18 September 2026) Tj
+/F1 9 Tf 1 0 0 1 54 699.0 Tm (Project type: Department certificate and On-Duty management web application) Tj
+/F1 9 Tf 1 0 0 1 54 686.0 Tm (Status: Implemented and locally validated) Tj
+/F1 9 Tf 1 0 0 1 54 673.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 660.0 Tm (1. Executive Summary) Tj
+/F1 9 Tf 1 0 0 1 54 643.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 630.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 617.0 Tm (The Certificate Management System is a full-stack web application for registering) Tj
+/F1 9 Tf 1 0 0 1 54 604.0 Tm (On-Duty \(OD\) participation, collecting student certificates, identifying missing) Tj
+/F1 9 Tf 1 0 0 1 54 591.0 Tm (submissions, and generating monthly reports. It replaces fragmented spreadsheet and) Tj
+/F1 9 Tf 1 0 0 1 54 578.0 Tm (file-sharing workflows with a role-aware application backed by PostgreSQL.) Tj
+/F1 9 Tf 1 0 0 1 54 565.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 552.0 Tm (The system has four application roles:) Tj
+/F1 9 Tf 1 0 0 1 54 539.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 526.0 Tm (- Student: views personal details and OD records, submits certificates, and downloads) Tj
+/F1 9 Tf 1 0 0 1 54 513.0 Tm (submitted certificates.) Tj
+/F1 9 Tf 1 0 0 1 54 500.0 Tm (- Student Representative: searches students and registers OD records for events.) Tj
+/F1 9 Tf 1 0 0 1 54 487.0 Tm (- Coordinating Faculty: reviews OD records, identifies missing certificates, and) Tj
+/F1 9 Tf 1 0 0 1 54 474.0 Tm (generates reports.) Tj
+/F1 9 Tf 1 0 0 1 54 461.0 Tm (- Administrator: provisions and manages the role hierarchy through administrative APIs.) Tj
+/F1 9 Tf 1 0 0 1 54 448.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 435.0 Tm (2. Objectives) Tj
+/F1 9 Tf 1 0 0 1 54 418.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 405.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 392.0 Tm (1. Provide a central record for OD registrations.) Tj
+/F1 9 Tf 1 0 0 1 54 379.0 Tm (2. Generate unique OD registration numbers safely under concurrent use.) Tj
+/F1 9 Tf 1 0 0 1 54 366.0 Tm (3. Allow students to submit certificates against their own OD records.) Tj
+/F1 9 Tf 1 0 0 1 54 353.0 Tm (4. Prevent unauthorized users from viewing or changing other students' records.) Tj
+/F1 9 Tf 1 0 0 1 54 340.0 Tm (5. Provide faculty with monthly summaries, Excel exports, and certificate ZIP downloads.) Tj
+/F1 9 Tf 1 0 0 1 54 327.0 Tm (6. Store certificate files in a predictable, protected filesystem structure.) Tj
+/F1 9 Tf 1 0 0 1 54 314.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 301.0 Tm (3. Technology Stack) Tj
+/F1 9 Tf 1 0 0 1 54 284.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 271.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 258.0 Tm (| Layer | Technology |) Tj
+/F1 9 Tf 1 0 0 1 54 245.0 Tm (|---|---|) Tj
+/F1 9 Tf 1 0 0 1 54 232.0 Tm (| Frontend | React 18, Vite, React Router, Axios, React Hook Form, Tailwind CSS |) Tj
+/F1 9 Tf 1 0 0 1 54 219.0 Tm (| Backend | Node.js, Express.js, ES modules |) Tj
+/F1 9 Tf 1 0 0 1 54 206.0 Tm (| Database | PostgreSQL 18, pg connection pool |) Tj
+/F1 9 Tf 1 0 0 1 54 193.0 Tm (| Authentication | JWT tokens and bcrypt password hashes |) Tj
+/F1 9 Tf 1 0 0 1 54 180.0 Tm (| File upload | Multer with memory buffering and server-side validation |) Tj
+/F1 9 Tf 1 0 0 1 54 167.0 Tm (| Reports | ExcelJS for .xlsx, Adm-Zip for .zip |) Tj
+/F1 9 Tf 1 0 0 1 54 154.0 Tm (| Testing | Jest and Supertest-style backend tests; Vitest and Testing Library frontend) Tj
+/F1 9 Tf 1 0 0 1 54 141.0 Tm (tests |) Tj
+/F1 9 Tf 1 0 0 1 54 128.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 115.0 Tm (4. Architecture) Tj
+/F1 9 Tf 1 0 0 1 54 98.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 85.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 72.0 Tm (The application uses a layered client-server architecture:) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 3537 >>
+stream
+BT
+/F1 9 Tf 1 0 0 1 54 790.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 777.0 Tm (text) Tj
+/F1 9 Tf 1 0 0 1 54 764.0 Tm (React/Vite frontend) Tj
+/F1 9 Tf 1 0 0 1 54 751.0 Tm (|) Tj
+/F1 9 Tf 1 0 0 1 54 738.0 Tm (| Axios JSON and multipart requests) Tj
+/F1 9 Tf 1 0 0 1 54 725.0 Tm (v) Tj
+/F1 9 Tf 1 0 0 1 54 712.0 Tm (Express REST API) Tj
+/F1 9 Tf 1 0 0 1 54 699.0 Tm (|) Tj
+/F1 9 Tf 1 0 0 1 54 686.0 Tm (+-- JWT authentication and role authorization) Tj
+/F1 9 Tf 1 0 0 1 54 673.0 Tm (+-- Models for PostgreSQL access) Tj
+/F1 9 Tf 1 0 0 1 54 660.0 Tm (+-- File storage and report generation) Tj
+/F1 9 Tf 1 0 0 1 54 647.0 Tm (v) Tj
+/F1 9 Tf 1 0 0 1 54 634.0 Tm (PostgreSQL database + certificate filesystem storage) Tj
+/F1 9 Tf 1 0 0 1 54 621.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 608.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 595.0 Tm (The frontend contains role-specific pages, protected routes, an authentication context,) Tj
+/F1 9 Tf 1 0 0 1 54 582.0 Tm (and service modules. The backend contains route modules, middleware, models, migrations,) Tj
+/F1 9 Tf 1 0 0 1 54 569.0 Tm (configuration, and utilities. PostgreSQL provides foreign keys, unique constraints,) Tj
+/F1 9 Tf 1 0 0 1 54 556.0 Tm (indexes, and the OD registration sequence.) Tj
+/F1 9 Tf 1 0 0 1 54 543.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 530.0 Tm (5. Main Workflows) Tj
+/F1 9 Tf 1 0 0 1 54 513.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 500.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 487.0 Tm (Student workflow) Tj
+/F1 9 Tf 1 0 0 1 54 474.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 461.0 Tm (1. Log in with institutional register number and date of birth.) Tj
+/F1 9 Tf 1 0 0 1 54 448.0 Tm (2. View personal profile and OD records.) Tj
+/F1 9 Tf 1 0 0 1 54 435.0 Tm (3. Select an owned OD registration number.) Tj
+/F1 9 Tf 1 0 0 1 54 422.0 Tm (4. Upload a PDF, JPG, JPEG, or PNG certificate up to 5 MB.) Tj
+/F1 9 Tf 1 0 0 1 54 409.0 Tm (5. View or download submitted certificates.) Tj
+/F1 9 Tf 1 0 0 1 54 396.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 383.0 Tm (Student Representative workflow) Tj
+/F1 9 Tf 1 0 0 1 54 370.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 357.0 Tm (1. Log in with a provisioned staff credential.) Tj
+/F1 9 Tf 1 0 0 1 54 344.0 Tm (2. Search students by register number, name, or department.) Tj
+/F1 9 Tf 1 0 0 1 54 331.0 Tm (3. Register an OD record with student ID and event details.) Tj
+/F1 9 Tf 1 0 0 1 54 318.0 Tm (4. Receive a generated number such as OD-0001.) Tj
+/F1 9 Tf 1 0 0 1 54 305.0 Tm (5. View OD records available to the representative role.) Tj
+/F1 9 Tf 1 0 0 1 54 292.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 279.0 Tm (Coordinating Faculty workflow) Tj
+/F1 9 Tf 1 0 0 1 54 266.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 253.0 Tm (1. Log in with a provisioned faculty credential.) Tj
+/F1 9 Tf 1 0 0 1 54 240.0 Tm (2. View OD records and certificate status.) Tj
+/F1 9 Tf 1 0 0 1 54 227.0 Tm (3. Request a monthly summary using YYYY-MM.) Tj
+/F1 9 Tf 1 0 0 1 54 214.0 Tm (4. Export the filtered records to Excel.) Tj
+/F1 9 Tf 1 0 0 1 54 201.0 Tm (5. Download submitted certificates for a month as a ZIP archive.) Tj
+/F1 9 Tf 1 0 0 1 54 188.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 175.0 Tm (Administrator workflow) Tj
+/F1 9 Tf 1 0 0 1 54 162.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 149.0 Tm (1. Log in with an administrator credential.) Tj
+/F1 9 Tf 1 0 0 1 54 136.0 Tm (2. Provision coordinating faculty accounts.) Tj
+/F1 9 Tf 1 0 0 1 54 123.0 Tm (3. Support the faculty-to-representative role hierarchy.) Tj
+/F1 9 Tf 1 0 0 1 54 110.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 97.0 Tm (6. Database Design) Tj
+/F1 9 Tf 1 0 0 1 54 80.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 67.0 Tm () Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 4105 >>
+stream
+BT
+/F1 9 Tf 1 0 0 1 54 790.0 Tm (The database is created by three migrations:) Tj
+/F1 9 Tf 1 0 0 1 54 777.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 764.0 Tm (- 001initialschema.sql: base students, users, OD records, certificates, sequence,) Tj
+/F1 9 Tf 1 0 0 1 54 751.0 Tm (indexes, and foreign keys.) Tj
+/F1 9 Tf 1 0 0 1 54 738.0 Tm (- 002authenticationandrolehierarchy.sql: password hashes, faculty assignment, role) Tj
+/F1 9 Tf 1 0 0 1 54 725.0 Tm (constraints, and authentication indexes.) Tj
+/F1 9 Tf 1 0 0 1 54 712.0 Tm (- 003adminroleandstudentdob.sql: administrator role support and student date of birth.) Tj
+/F1 9 Tf 1 0 0 1 54 699.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 686.0 Tm (Core tables:) Tj
+/F1 9 Tf 1 0 0 1 54 673.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 660.0 Tm (- students: institutional register number, name, department, year, section, and date of) Tj
+/F1 9 Tf 1 0 0 1 54 647.0 Tm (birth.) Tj
+/F1 9 Tf 1 0 0 1 54 634.0 Tm (- users: username, role, password hash, active state, student link, and assigned faculty) Tj
+/F1 9 Tf 1 0 0 1 54 621.0 Tm (link.) Tj
+/F1 9 Tf 1 0 0 1 54 608.0 Tm (- odrecords: student link, generated registration number, event details, creator,) Tj
+/F1 9 Tf 1 0 0 1 54 595.0 Tm (status, and timestamps.) Tj
+/F1 9 Tf 1 0 0 1 54 582.0 Tm (- certificates: one-to-one OD certificate metadata, secure path, file type, size, and) Tj
+/F1 9 Tf 1 0 0 1 54 569.0 Tm (reporting month.) Tj
+/F1 9 Tf 1 0 0 1 54 556.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 543.0 Tm (The registrationnumberseq PostgreSQL sequence produces globally unique numbers formatted) Tj
+/F1 9 Tf 1 0 0 1 54 530.0 Tm (as OD-0001, OD-0002, and so on. Sequence gaps after failed transactions are expected and) Tj
+/F1 9 Tf 1 0 0 1 54 517.0 Tm (do not compromise uniqueness.) Tj
+/F1 9 Tf 1 0 0 1 54 504.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 491.0 Tm (7. API Summary) Tj
+/F1 9 Tf 1 0 0 1 54 474.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 461.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 448.0 Tm (Base URL: http://localhost:5000/api) Tj
+/F1 9 Tf 1 0 0 1 54 435.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 422.0 Tm (| Route group | Purpose |) Tj
+/F1 9 Tf 1 0 0 1 54 409.0 Tm (|---|---|) Tj
+/F1 9 Tf 1 0 0 1 54 396.0 Tm (| /auth | Login, logout, and current user identity |) Tj
+/F1 9 Tf 1 0 0 1 54 383.0 Tm (| /users | Faculty and representative account administration |) Tj
+/F1 9 Tf 1 0 0 1 54 370.0 Tm (| /students | Student profile, search, personal OD records, and certificates |) Tj
+/F1 9 Tf 1 0 0 1 54 357.0 Tm (| /od-records | OD creation and OD record access |) Tj
+/F1 9 Tf 1 0 0 1 54 344.0 Tm (| /certificates | Certificate upload, listing, and download |) Tj
+/F1 9 Tf 1 0 0 1 54 331.0 Tm (| /reports | Monthly summary, Excel export, and ZIP export |) Tj
+/F1 9 Tf 1 0 0 1 54 318.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 305.0 Tm (The health endpoint is GET /api/health. Protected endpoints require Authorization:) Tj
+/F1 9 Tf 1 0 0 1 54 292.0 Tm (Bearer <JWT>.) Tj
+/F1 9 Tf 1 0 0 1 54 279.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 266.0 Tm (8. Security and Validation) Tj
+/F1 9 Tf 1 0 0 1 54 249.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 236.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 223.0 Tm (- JWT authentication is required for protected routes.) Tj
+/F1 9 Tf 1 0 0 1 54 210.0 Tm (- Role checks are enforced on the server, not only in the frontend.) Tj
+/F1 9 Tf 1 0 0 1 54 197.0 Tm (- Student ownership is checked before certificate submission and download.) Tj
+/F1 9 Tf 1 0 0 1 54 184.0 Tm (- Passwords are stored as bcrypt hashes.) Tj
+/F1 9 Tf 1 0 0 1 54 171.0 Tm (- SQL uses parameterized queries through pg.) Tj
+/F1 9 Tf 1 0 0 1 54 158.0 Tm (- Uploads allow only PDF, JPG, JPEG, and PNG files up to 5 MB.) Tj
+/F1 9 Tf 1 0 0 1 54 145.0 Tm (- Certificate files are stored outside the public frontend directory.) Tj
+/F1 9 Tf 1 0 0 1 54 132.0 Tm (- Production configuration requires a strong JWT secret, explicit CORS origins,) Tj
+/F1 9 Tf 1 0 0 1 54 119.0 Tm (configured storage, and HTTPS.) Tj
+/F1 9 Tf 1 0 0 1 54 106.0 Tm (- Invalid tokens, missing roles, invalid files, missing records, and duplicate) Tj
+/F1 9 Tf 1 0 0 1 54 93.0 Tm (certificates receive centralized API errors.) Tj
+/F1 9 Tf 1 0 0 1 54 80.0 Tm () Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 2978 >>
+stream
+BT
+/F2 13 Tf 1 0 0 1 54 790.0 Tm (9. Local Setup) Tj
+/F1 9 Tf 1 0 0 1 54 773.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 760.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 747.0 Tm (Prerequisites) Tj
+/F1 9 Tf 1 0 0 1 54 734.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 721.0 Tm (- Node.js LTS) Tj
+/F1 9 Tf 1 0 0 1 54 708.0 Tm (- PostgreSQL 12 or later; the validated environment uses PostgreSQL 18) Tj
+/F1 9 Tf 1 0 0 1 54 695.0 Tm (- npm) Tj
+/F1 9 Tf 1 0 0 1 54 682.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 669.0 Tm (Database and backend) Tj
+/F1 9 Tf 1 0 0 1 54 656.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 643.0 Tm (powershell) Tj
+/F1 9 Tf 1 0 0 1 54 630.0 Tm (cd backend) Tj
+/F1 9 Tf 1 0 0 1 54 617.0 Tm (npm install) Tj
+/F1 9 Tf 1 0 0 1 54 604.0 Tm (copy .env.example .env) Tj
+/F1 9 Tf 1 0 0 1 54 591.0 Tm (npm run migrate) Tj
+/F1 9 Tf 1 0 0 1 54 578.0 Tm (npm start) Tj
+/F1 9 Tf 1 0 0 1 54 565.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 552.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 539.0 Tm (Backend URL: http://localhost:5000) Tj
+/F1 9 Tf 1 0 0 1 54 526.0 Tm (Health URL: http://localhost:5000/api/health) Tj
+/F1 9 Tf 1 0 0 1 54 513.0 Tm () Tj
+/F2 10 Tf 1 0 0 1 54 500.0 Tm (Frontend) Tj
+/F1 9 Tf 1 0 0 1 54 487.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 474.0 Tm (powershell) Tj
+/F1 9 Tf 1 0 0 1 54 461.0 Tm (cd frontend) Tj
+/F1 9 Tf 1 0 0 1 54 448.0 Tm (npm install) Tj
+/F1 9 Tf 1 0 0 1 54 435.0 Tm (copy .env.example .env) Tj
+/F1 9 Tf 1 0 0 1 54 422.0 Tm (npm run dev -- --host localhost) Tj
+/F1 9 Tf 1 0 0 1 54 409.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 396.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 383.0 Tm (Frontend URL: http://localhost:5173) Tj
+/F1 9 Tf 1 0 0 1 54 370.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 357.0 Tm (10. Local Validation Accounts) Tj
+/F1 9 Tf 1 0 0 1 54 340.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 327.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 314.0 Tm (These credentials are for local demonstration and testing only:) Tj
+/F1 9 Tf 1 0 0 1 54 301.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 288.0 Tm (| Role | Username | Password |) Tj
+/F1 9 Tf 1 0 0 1 54 275.0 Tm (|---|---|---|) Tj
+/F1 9 Tf 1 0 0 1 54 262.0 Tm (| Admin | admin | Admin1234 |) Tj
+/F1 9 Tf 1 0 0 1 54 249.0 Tm (| Student | 22AD001 | 2004-06-15 |) Tj
+/F1 9 Tf 1 0 0 1 54 236.0 Tm (| Student Representative | rep1 | Rep12345 |) Tj
+/F1 9 Tf 1 0 0 1 54 223.0 Tm (| Coordinating Faculty | faculty1 | Faculty123 |) Tj
+/F1 9 Tf 1 0 0 1 54 210.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 197.0 Tm (Credentials must be changed or removed before any production deployment.) Tj
+/F1 9 Tf 1 0 0 1 54 184.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 171.0 Tm (11. Verification Evidence) Tj
+/F1 9 Tf 1 0 0 1 54 154.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 141.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 128.0 Tm (The implementation was validated against a live local PostgreSQL database and running) Tj
+/F1 9 Tf 1 0 0 1 54 115.0 Tm (HTTP services:) Tj
+/F1 9 Tf 1 0 0 1 54 102.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 89.0 Tm (- PostgreSQL server was running and the certificatemanagement database was reachable.) Tj
+/F1 9 Tf 1 0 0 1 54 76.0 Tm (- All three database migrations completed successfully.) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 3015 >>
+stream
+BT
+/F1 9 Tf 1 0 0 1 54 790.0 Tm (- GET /api/health returned status OK.) Tj
+/F1 9 Tf 1 0 0 1 54 777.0 Tm (- Admin, student, and student representative login plus /auth/me flows succeeded.) Tj
+/F1 9 Tf 1 0 0 1 54 764.0 Tm (- A representative created an OD record with registration number OD-0001.) Tj
+/F1 9 Tf 1 0 0 1 54 751.0 Tm (- A student uploaded 22AD001OD-0001.pdf successfully.) Tj
+/F1 9 Tf 1 0 0 1 54 738.0 Tm (- Faculty monthly summary returned one OD record, one submitted certificate, and zero) Tj
+/F1 9 Tf 1 0 0 1 54 725.0 Tm (missing certificates.) Tj
+/F1 9 Tf 1 0 0 1 54 712.0 Tm (- Excel export returned a valid .xlsx response with a nonzero payload.) Tj
+/F1 9 Tf 1 0 0 1 54 699.0 Tm (- ZIP export returned a valid .zip response with a nonzero payload.) Tj
+/F1 9 Tf 1 0 0 1 54 686.0 Tm (- Backend tests passed: 2 suites and 3 tests.) Tj
+/F1 9 Tf 1 0 0 1 54 673.0 Tm (- Frontend tests passed: 1 suite and 3 tests.) Tj
+/F1 9 Tf 1 0 0 1 54 660.0 Tm (- Frontend production build completed successfully.) Tj
+/F1 9 Tf 1 0 0 1 54 647.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 634.0 Tm (12. Project Structure) Tj
+/F1 9 Tf 1 0 0 1 54 617.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 604.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 591.0 Tm (text) Tj
+/F1 9 Tf 1 0 0 1 54 578.0 Tm (backend/ Express API, models, routes, middleware, migrations, tests) Tj
+/F1 9 Tf 1 0 0 1 54 565.0 Tm (frontend/ React/Vite SPA, pages, role components, services, tests) Tj
+/F1 9 Tf 1 0 0 1 54 552.0 Tm (docs/ API, database, design, and submission documentation) Tj
+/F1 9 Tf 1 0 0 1 54 539.0 Tm (storage/ Certificate files organized by year and month) Tj
+/F1 9 Tf 1 0 0 1 54 526.0 Tm (README.md Project overview and startup guide) Tj
+/F1 9 Tf 1 0 0 1 54 513.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 500.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 487.0 Tm (13. Scope and Limitations) Tj
+/F1 9 Tf 1 0 0 1 54 470.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 457.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 444.0 Tm (The current release intentionally does not include event discovery, certificate approval) Tj
+/F1 9 Tf 1 0 0 1 54 431.0 Tm (or rejection, participation verification, automatic OD blocking, QR codes, OCR,) Tj
+/F1 9 Tf 1 0 0 1 54 418.0 Tm (payments, or multi-tenant administration. Department policy decisions remain open for) Tj
+/F1 9 Tf 1 0 0 1 54 405.0 Tm (production authentication policy, OD cancellation, late submissions, department scope,) Tj
+/F1 9 Tf 1 0 0 1 54 392.0 Tm (and editing authority.) Tj
+/F1 9 Tf 1 0 0 1 54 379.0 Tm () Tj
+/F2 13 Tf 1 0 0 1 54 366.0 Tm (14. Conclusion) Tj
+/F1 9 Tf 1 0 0 1 54 349.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 336.0 Tm () Tj
+/F1 9 Tf 1 0 0 1 54 323.0 Tm (Certificate Management System v1.3 provides a working, secure foundation for) Tj
+/F1 9 Tf 1 0 0 1 54 310.0 Tm (departmental OD and certificate administration. The core workflows, role boundaries,) Tj
+/F1 9 Tf 1 0 0 1 54 297.0 Tm (database integrity, file handling, and reporting functions are implemented and verified) Tj
+/F1 9 Tf 1 0 0 1 54 284.0 Tm (locally through automated tests and live API validation.) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 13 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R] /Count 5 >>
+endobj
+14 0 obj
+<< /Type /Catalog /Pages 13 0 R >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000004089 00000 n 
+0000004226 00000 n 
+0000007815 00000 n 
+0000007952 00000 n 
+0000012109 00000 n 
+0000012246 00000 n 
+0000015276 00000 n 
+0000015414 00000 n 
+0000018482 00000 n 
+0000018621 00000 n 
+0000018705 00000 n 
+trailer
+<< /Size 15 /Root 14 0 R >>
+startxref
+18756
+%%EOF

@@ -42,7 +42,11 @@ class Certificate {
    * Get all certificates (for reporting)
    */
   static async getAll(filters = {}, limit = 50, offset = 0) {
-    let query = 'SELECT c.*, s.register_number FROM certificates c JOIN students s ON c.student_id = s.student_id WHERE 1=1';
+    let query = `SELECT c.*, s.register_number, od.registration_number
+           FROM certificates c
+           JOIN students s ON c.student_id = s.student_id
+           JOIN od_records od ON c.od_id = od.od_id
+           WHERE 1=1`;
     const values = [];
     let paramCount = 1;
 
@@ -139,9 +143,10 @@ class Certificate {
     let query = `SELECT od.*, s.register_number
                  FROM od_records od
                  JOIN students s ON od.student_id = s.student_id
-                 WHERE EXTRACT(YEAR-MONTH FROM od.created_at) = $1
-                 AND od.od_id NOT IN (SELECT od_id FROM certificates WHERE submission_month = $1)`;
-    const values = [month];
+                 WHERE od.created_at >= $1::date
+                 AND od.created_at < ($1::date + INTERVAL '1 month')
+                 AND NOT EXISTS (SELECT 1 FROM certificates c WHERE c.od_id = od.od_id)`;
+    const values = [`${month}-01`];
     let paramCount = 2;
 
     if (filters.department) {

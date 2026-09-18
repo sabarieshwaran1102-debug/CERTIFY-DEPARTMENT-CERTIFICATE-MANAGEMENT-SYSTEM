@@ -64,7 +64,7 @@ Get authenticated user information.
 ### GET /students/me
 Get authenticated student's own information.
 
-**Status**: Planned (Phase 2)
+**Status**: Implemented (Phase 2)
 
 **Response**:
 ```json
@@ -81,7 +81,7 @@ Get authenticated student's own information.
 ### GET /students/me/od-records
 List authenticated student's OD records.
 
-**Status**: Planned (Phase 2)
+**Status**: Implemented (Phase 2)
 
 **Response**:
 ```json
@@ -99,7 +99,7 @@ List authenticated student's OD records.
 ### GET /students/me/certificates
 List authenticated student's submitted certificates.
 
-**Status**: Planned (Phase 2)
+**Status**: Implemented (Phase 2)
 
 **Response**:
 ```json
@@ -124,7 +124,7 @@ Submit a certificate for an OD record (Student only).
 
 **Required Role**: `student`
 
-**Status**: Planned (Phase 2)
+**Status**: Implemented (Phase 2)
 
 **Request**:
 ```
@@ -157,7 +157,7 @@ Fields:
 ### GET /certificates/:certId/download
 Download a certificate file.
 
-**Status**: Planned (Phase 2/4)
+**Status**: Implemented for students (Phase 2); faculty access is not part of this phase
 
 **Authorization**: 
 - Student can download own certificates
@@ -174,7 +174,7 @@ Download a certificate file.
 ### GET /students
 Search students for OD registration.
 
-**Status**: Planned (Phase 3)
+**Status**: Implemented (Phase 3)
 
 **Query Parameters**:
 - `name` (optional): Filter by name
@@ -197,7 +197,7 @@ Search students for OD registration.
 ### POST /od-records
 Register a new OD record (generates registration number atomically).
 
-**Status**: Planned (Phase 3)
+**Status**: Implemented (Phase 3)
 
 **Request**:
 ```json
@@ -223,7 +223,7 @@ Register a new OD record (generates registration number atomically).
 ### GET /od-records
 List registered OD records.
 
-**Status**: Planned (Phase 3)
+**Status**: Implemented (Phase 3)
 
 **Query Parameters**:
 - `status` (optional): Filter by status (active, cancelled)
@@ -250,7 +250,7 @@ List registered OD records.
 ### GET /od-records/:odId
 Get specific OD record details.
 
-**Status**: Planned (Phase 3)
+**Status**: Implemented (Phase 3)
 
 ---
 
@@ -261,7 +261,7 @@ Get specific OD record details.
 ### GET /od-records
 List all OD records.
 
-**Status**: Planned (Phase 4)
+**Status**: Implemented for Coordinating Faculty (Phase 4)
 
 **Query Parameters**:
 - `status` (optional): Filter by status
@@ -275,7 +275,7 @@ List all OD records.
 ### GET /od-records/certificates
 View certificate submission status for OD records.
 
-**Status**: Planned (Phase 4)
+**Status**: Not implemented; use `GET /reports/monthly-summary` for Phase 4 status data.
 
 **Query Parameters**:
 - `month` (optional): Filter by month (YYYY-MM)
@@ -294,7 +294,7 @@ View certificate submission status for OD records.
 ### GET /certificates
 List all certificates.
 
-**Status**: Planned (Phase 4)
+**Status**: Implemented for Coordinating Faculty (Phase 4)
 
 **Query Parameters**:
 - `month` (optional): Filter by month
@@ -303,12 +303,12 @@ List all certificates.
 ### GET /certificates/:certId/download
 Download any certificate (Faculty access).
 
-**Status**: Planned (Phase 2/4)
+**Status**: Implemented for Student and Coordinating Faculty
 
 ### POST /reports/excel
 Generate and download monthly Excel report.
 
-**Status**: Planned (Phase 4)
+**Status**: Implemented (Phase 4)
 
 **Request**:
 ```json
@@ -323,15 +323,13 @@ Generate and download monthly Excel report.
 **Response**: Binary Excel file
 
 **Report Contents**:
-- Summary tab (totals, counts)
-- OD records tab
-- Submitted certificates tab
-- Missing certificates tab
+- One worksheet containing each OD record created in the selected month
+- Student, event, OD status, certificate submitted flag, certificate filename, and submission timestamp
 
 ### POST /reports/certificates-zip
 Bulk download certificates as ZIP.
 
-**Status**: Planned (Phase 4)
+**Status**: Implemented (Phase 4)
 
 **Request**:
 ```json
@@ -356,7 +354,7 @@ Example:
 ### GET /reports/monthly-summary
 Get monthly data summary (for dashboard display).
 
-**Status**: Planned (Phase 4, optional)
+**Status**: Implemented (Phase 4)
 
 ---
 

@@ -4,15 +4,13 @@ import path from 'path';
 import fs from 'fs/promises';
 import { access, mkdir } from 'fs/promises';
 import { verifyToken, requireRole } from '../middleware/auth.js';
-import { requireStudentRepRole, requireFacultyRole } from '../middleware/authorization.js';
 import Certificate from '../models/Certificate.js';
 import ODRecord from '../models/ODRecord.js';
 import Student from '../models/Student.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { fileURLToPath } from 'url';
+import { getStoragePath } from '../config/storage.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORAGE_BASE = path.join(__dirname, '../../..', process.env.STORAGE_PATH || '../storage/certificates');
+const STORAGE_BASE = getStoragePath();
 
 const router = express.Router();
 
@@ -59,7 +57,7 @@ router.post('/',
             }
 
             // Verify ownership: OD must belong to authenticated student
-            if (odRecord.student_id !== req.user.student_id) {
+            if (String(odRecord.student_id) !== String(req.user.student_id)) {
                 throw new AppError('This OD record belongs to another student', 'FORBIDDEN', 403);
             }
 
@@ -103,15 +101,24 @@ router.post('/',
             }
 
             // Create certificate record in database
-            const certificate = await Certificate.create({
-                od_id: odRecord.od_id,
-                student_id: req.user.student_id,
-                file_name: fileName,
-                file_path: filePath,
-                file_size: req.file.size,
-                file_type: req.file.mimetype,
-                submission_month: submissionMonth,
-            });
+            let certificate;
+            try {
+                certificate = await Certificate.create({
+                    od_id: odRecord.od_id,
+                    student_id: req.user.student_id,
+                    file_name: fileName,
+                    file_path: filePath,
+                    file_size: req.file.size,
+                    file_type: req.file.mimetype,
+                    submission_month: submissionMonth,
+                });
+            } catch (err) {
+                await fs.unlink(filePath).catch(() => {});
+                if (err.code === '23505') {
+                    throw new AppError('A certificate has already been submitted for this OD record', 'CONFLICT', 409);
+                }
+                throw err;
+            }
 
             res.status(201).json({
                 certificate_id: certificate.certificate_id,

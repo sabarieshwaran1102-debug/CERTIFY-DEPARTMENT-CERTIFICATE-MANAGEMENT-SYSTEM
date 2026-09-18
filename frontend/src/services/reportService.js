@@ -1,7 +1,5 @@
 import apiClient from './api';
 
-// TODO: Implement in Phase 4
-
 export const reportService = {
     generateExcelReport: async (month, filters = {}) => {
         return apiClient.post('/reports/excel', 

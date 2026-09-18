@@ -1,43 +1,52 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 import { AppError } from './errorHandler.js';
 
-export const verifyToken = (req, res, next) => {
+const jwtSecret = process.env.JWT_SECRET || 'development-secret-key';
+
+export const verifyToken = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
-        
+
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new AppError('Missing or invalid authorization token', 'UNAUTHORIZED', 401);
+            return next(new AppError('Missing or invalid authorization token', 'UNAUTHORIZED', 401));
         }
 
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+        const decoded = jwt.verify(token, jwtSecret);
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
+        const user = await User.getById(decoded.user_id);
+        if (!user || !user.is_active) {
+            return next(new AppError('User account is inactive or unavailable', 'UNAUTHORIZED', 401));
+        }
+
         req.user = {
-            user_id: decoded.user_id,
-            student_id: decoded.student_id,
-            role: decoded.role,
+            user_id: user.user_id,
+            student_id: user.student_id,
+            role: user.role,
+            username: user.username,
+            assigned_faculty_id: user.assigned_faculty_id,
         };
 
-        next();
+        return next();
     } catch (err) {
         if (err instanceof AppError) {
-            throw err;
+            return next(err);
         }
-        throw new AppError('Invalid or expired token', 'UNAUTHORIZED', 401);
+        return next(new AppError('Invalid or expired token', 'UNAUTHORIZED', 401));
     }
 };
 
 export const requireRole = (...allowedRoles) => {
     return (req, res, next) => {
         if (!req.user) {
-            throw new AppError('Authentication required', 'UNAUTHORIZED', 401);
+            return next(new AppError('Authentication required', 'UNAUTHORIZED', 401));
         }
 
         if (!allowedRoles.includes(req.user.role)) {
-            throw new AppError('Insufficient permissions for this action', 'FORBIDDEN', 403);
+            return next(new AppError('Insufficient permissions for this action', 'FORBIDDEN', 403));
         }
 
-        next();
+        return next();
     };
 };
