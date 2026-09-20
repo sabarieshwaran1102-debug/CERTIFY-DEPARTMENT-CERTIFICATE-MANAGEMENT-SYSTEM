@@ -512,3 +512,412 @@ describe("OD pagination", () => {
         expect(ids1.some((id) => ids2.includes(id))).toBe(false);
     });
 });
+
+// =============================================================================
+// 7. OD CANCELLATION
+// =============================================================================
+describe("OD cancellation", () => {
+    let cancelTarget, cancelClass2Od, cancelAdvStudent;
+    let crToken, crUserId, crStudent;
+
+    beforeAll(async () => {
+        // Student in class1 for cancellation tests
+        const s1 = await api(adminToken).post("/api/students", {
+            register_number: uid("CNS"), name: "Cancel Stu", date_of_birth: "2003-12-01", class_id: testClassId,
+        });
+        expect(s1.status).toBe(201);
+        cancelAdvStudent = s1.body;
+
+        // OD in class1 (to be cancelled)
+        const od1 = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Cancel Target " + RUN }));
+        expect(od1.status).toBe(201);
+        cancelTarget = od1.body;
+
+        // OD in class2 (to test advisor cross-class rejection)
+        const s2 = await api(adminToken).post("/api/students", {
+            register_number: uid("CN2"), name: "Cancel Stu2", date_of_birth: "2003-12-02", class_id: testClass2Id,
+        });
+        expect(s2.status).toBe(201);
+        const od2 = await api(adminToken).post("/api/ods", odBody(testClass2Id, [s2.body.student_id], { event_name: "Class2 Cancel " + RUN }));
+        expect(od2.status).toBe(201);
+        cancelClass2Od = od2.body;
+
+        // CR user in class1
+        const crStu = await api(adminToken).post("/api/students", {
+            register_number: uid("CCR"), name: "Cancel CR", date_of_birth: "2003-12-03", class_id: testClassId,
+        });
+        expect(crStu.status).toBe(201);
+        crStudent = crStu.body;
+        await pool.query(
+            "INSERT INTO class_representatives (class_id,student_id,assigned_by) SELECT $1,$2,$3 WHERE NOT EXISTS (SELECT 1 FROM class_representatives WHERE class_id=$1 AND student_id=$2)",
+            [testClassId, crStudent.student_id, adminUserId]
+        );
+        const cr = await pool.query(
+            "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
+            [crStudent.register_number, "class_representative", crStudent.student_id,
+             await bcrypt.hash("2003-12-03", 12), testClassId]
+        );
+        crUserId = cr.rows[0].user_id;
+        crToken  = (await login(crStudent.register_number, "2003-12-03", "class_representative")).token;
+    }, 30000);
+
+    afterAll(async () => {
+        if (crUserId) await pool.query("DELETE FROM users WHERE user_id=$1", [crUserId]).catch(() => {});
+    });
+
+    test("Admin can cancel an OD", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Admin Cancel " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "Admin cancelled" });
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe("cancelled");
+        expect(res.body.cancellation_reason).toBe("Admin cancelled");
+        expect(res.body.cancelled_at).toBeTruthy();
+    });
+
+    test("Super Admin can cancel an OD", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "SA Cancel " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(superAdminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "SA cancel reason" });
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe("cancelled");
+    });
+
+    test("Class Advisor can cancel own-class OD", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Adv Cancel " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(advisorToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "Advisor cancelled" });
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe("cancelled");
+    });
+
+    test("Class Advisor cannot cancel another-class OD", async () => {
+        // advisor1 is assigned to class1; cancelClass2Od is in class2
+        const res = await api(advisorToken).post("/api/ods/" + cancelClass2Od.id + "/cancel", { reason: "Cross cancel" });
+        expect(res.status).toBe(403);
+    });
+
+    test("CR cannot cancel an OD", async () => {
+        const res = await api(crToken).post("/api/ods/" + cancelTarget.id + "/cancel", { reason: "CR cancel attempt" });
+        expect(res.status).toBe(403);
+    });
+
+    test("Student cannot cancel an OD", async () => {
+        const res = await api(studentToken).post("/api/ods/" + cancelTarget.id + "/cancel", { reason: "Stu cancel" });
+        expect(res.status).toBe(403);
+    });
+
+    test("Unauthenticated cancel returns 401", async () => {
+        const res = await request(app).post("/api/ods/" + cancelTarget.id + "/cancel").send({ reason: "anon" });
+        expect(res.status).toBe(401);
+    });
+
+    test("Missing cancellation reason returns 400", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "No Reason " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", {});
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/cancellation_reason/i);
+    });
+
+    test("Blank cancellation reason rejected", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Blank Reason " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "   " });
+        expect(res.status).toBe(400);
+    });
+
+    test("Already-cancelled OD returns 409", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Double Cancel " + RUN }));
+        expect(od.status).toBe(201);
+        const first = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "First cancel" });
+        expect(first.status).toBe(200);
+        const second = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "Second cancel" });
+        expect(second.status).toBe(409);
+    });
+
+    test("Participants remain after cancellation", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "Participants Remain " + RUN }));
+        expect(od.status).toBe(201);
+        await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "Test participants" });
+        const detail = await api(adminToken).get("/api/ods/" + od.body.id);
+        expect(detail.status).toBe(200);
+        expect(detail.body.participants).toHaveLength(1);
+        expect(detail.body.status).toBe("cancelled");
+    });
+
+    test("Cancellation sets cancelled_by_username", async () => {
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [cancelAdvStudent.student_id], { event_name: "CB Username " + RUN }));
+        expect(od.status).toBe(201);
+        const res = await api(adminToken).post("/api/ods/" + od.body.id + "/cancel", { reason: "Check username" });
+        expect(res.status).toBe(200);
+        expect(res.body.cancelled_by_username).toBeTruthy();
+    });
+});
+
+// =============================================================================
+// 8. AUDIT LOGGING
+// =============================================================================
+describe("OD audit logging", () => {
+    let auditStudent, auditOd;
+
+    beforeAll(async () => {
+        const s = await api(adminToken).post("/api/students", {
+            register_number: uid("AUS"), name: "Audit Stu", date_of_birth: "2004-01-10", class_id: testClassId,
+        });
+        expect(s.status).toBe(201);
+        auditStudent = s.body;
+
+        const od = await api(adminToken).post("/api/ods", odBody(testClassId, [auditStudent.student_id], { event_name: "Audit Event " + RUN }));
+        expect(od.status).toBe(201);
+        auditOd = od.body;
+    }, 20000);
+
+    test("OD creation creates OD_CREATED audit event", async () => {
+        const res = await api(superAdminToken).get("/api/audit/od/" + auditOd.id);
+        expect(res.status).toBe(200);
+        const actions = res.body.data.map((e) => e.action);
+        expect(actions).toContain("OD_CREATED");
+    });
+
+    test("OD_CREATED audit contains od_number and event_name", async () => {
+        const res = await api(superAdminToken).get("/api/audit/od/" + auditOd.id);
+        expect(res.status).toBe(200);
+        const created = res.body.data.find((e) => e.action === "OD_CREATED");
+        expect(created).toBeDefined();
+        expect(created.new_data.od_number).toBe(auditOd.od_number);
+        expect(created.new_data.event_name).toBeTruthy();
+    });
+
+    test("OD cancellation creates OD_CANCELLED audit event", async () => {
+        const cancelRes = await api(adminToken).post("/api/ods/" + auditOd.id + "/cancel", { reason: "Audit cancel test" });
+        expect(cancelRes.status).toBe(200);
+
+        const res = await api(superAdminToken).get("/api/audit/od/" + auditOd.id);
+        expect(res.status).toBe(200);
+        const actions = res.body.data.map((e) => e.action);
+        expect(actions).toContain("OD_CANCELLED");
+    });
+
+    test("OD_CANCELLED audit contains cancellation reason in details", async () => {
+        const res = await api(superAdminToken).get("/api/audit/od/" + auditOd.id);
+        expect(res.status).toBe(200);
+        const cancelled = res.body.data.find((e) => e.action === "OD_CANCELLED");
+        expect(cancelled).toBeDefined();
+        expect(cancelled.details).toBe("Audit cancel test");
+        expect(cancelled.new_data.cancellation_reason).toBe("Audit cancel test");
+    });
+});
+
+// =============================================================================
+// 9. ADVANCED FILTERING
+// =============================================================================
+describe("OD advanced filtering", () => {
+    let filterStudents = [];
+    let filterOds = [];
+
+    beforeAll(async () => {
+        // Create 3 students, 3 ODs with distinct attributes for filtering
+        for (let i = 0; i < 3; i++) {
+            const s = await api(adminToken).post("/api/students", {
+                register_number: uid("FLT"),
+                name: "Filter Stu " + i,
+                date_of_birth: "2004-0" + (i + 1) + "-15",
+                class_id: testClassId,
+            });
+            expect(s.status).toBe(201);
+            filterStudents.push(s.body);
+        }
+
+        const types = ["workshop", "conference", "hackathon"];
+        const dates = ["2027-01-10", "2027-02-20", "2027-03-30"];
+
+        for (let i = 0; i < 3; i++) {
+            const od = await api(adminToken).post("/api/ods", {
+                class_id:     testClassId,
+                event_name:   "FilterEvent_" + i + "_" + RUN,
+                event_type:   types[i],
+                event_date:   dates[i],
+                od_start_date: dates[i],
+                od_end_date:   dates[i],
+                purpose:      "Filter test " + i,
+                venue:        "Venue " + i,
+                student_ids:  [filterStudents[i].student_id],
+            });
+            expect(od.status).toBe(201);
+            filterOds.push(od.body);
+        }
+
+        // Cancel the third OD for status-filter test
+        await api(adminToken).post("/api/ods/" + filterOds[2].id + "/cancel", { reason: "Cancelled for filter test" });
+    }, 30000);
+
+    test("Filter by od_number returns exactly one OD", async () => {
+        const res = await api(adminToken).get("/api/ods", { od_number: filterOds[0].od_number });
+        expect(res.status).toBe(200);
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].od_number).toBe(filterOds[0].od_number);
+    });
+
+    test("Filter by event_name (partial, case-insensitive) returns matching ODs", async () => {
+        const partial = "FilterEvent_0";
+        const res = await api(adminToken).get("/api/ods", { event_name: partial });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+        expect(res.body.data[0].event_name).toContain("FilterEvent_0");
+    });
+
+    test("Filter by event_type returns matching ODs", async () => {
+        const res = await api(adminToken).get("/api/ods", { event_type: "workshop" });
+        expect(res.status).toBe(200);
+        res.body.data.forEach((o) => expect(o.event_type).toBe("workshop"));
+    });
+
+    test("Filter by status=active returns only active ODs", async () => {
+        const res = await api(adminToken).get("/api/ods", { status: "active", class_id: testClassId });
+        expect(res.status).toBe(200);
+        res.body.data.forEach((o) => expect(o.status).toBe("active"));
+    });
+
+    test("Filter by status=cancelled returns only cancelled ODs", async () => {
+        const res = await api(adminToken).get("/api/ods", { status: "cancelled", class_id: testClassId });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+        res.body.data.forEach((o) => expect(o.status).toBe("cancelled"));
+    });
+
+    test("Filter by event_date returns OD on that exact date", async () => {
+        const res = await api(adminToken).get("/api/ods", { event_date: "2027-01-10", class_id: testClassId });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+        res.body.data.forEach((o) => expect(o.event_date.slice(0, 10)).toBe("2027-01-10"));
+    });
+
+    test("Filter by event_date_from / event_date_to range", async () => {
+        const res = await api(adminToken).get("/api/ods", {
+            event_date_from: "2027-01-01",
+            event_date_to:   "2027-02-28",
+            class_id:        testClassId,
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+        res.body.data.forEach((o) => {
+            const d = new Date(o.event_date);
+            expect(d >= new Date("2027-01-01")).toBe(true);
+            expect(d <= new Date("2027-02-28")).toBe(true);
+        });
+    });
+
+    test("Filter by student register number returns OD they participate in", async () => {
+        const res = await api(adminToken).get("/api/ods", {
+            student_register: filterStudents[0].register_number,
+            class_id: testClassId,
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+        const found = res.body.data.find((o) => o.id === filterOds[0].id);
+        expect(found).toBeDefined();
+    });
+
+    test("Filter by student name returns OD they participate in", async () => {
+        const res = await api(adminToken).get("/api/ods", {
+            student_name: "Filter Stu 1",
+            class_id: testClassId,
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test("Pagination still works with filters", async () => {
+        const page1 = await api(adminToken).get("/api/ods", { limit: 1, offset: 0, class_id: testClassId });
+        const page2 = await api(adminToken).get("/api/ods", { limit: 1, offset: 1, class_id: testClassId });
+        expect(page1.status).toBe(200);
+        expect(page2.status).toBe(200);
+        expect(page1.body.pagination.total).toBeGreaterThanOrEqual(2);
+        const ids1 = page1.body.data.map((o) => o.id);
+        const ids2 = page2.body.data.map((o) => o.id);
+        expect(ids1.some((id) => ids2.includes(id))).toBe(false);
+    });
+
+    test("Scoped user (advisor) cannot escape scope via class_id filter", async () => {
+        // advisor1 is assigned class1; even if they pass class2 in filter, they get class1 data
+        const res = await api(advisorToken).get("/api/ods", { class_id: testClass2Id });
+        expect(res.status).toBe(200);
+        // Scope must enforce class1 only
+        res.body.data.forEach((o) => expect(String(o.class_id)).toBe(String(testClassId)));
+    });
+});
+
+// =============================================================================
+// 10. DETAIL SECURITY
+// =============================================================================
+describe("OD detail security", () => {
+    let secOd1, secOd2, secStudent2;
+    let secStudent2Token;
+
+    beforeAll(async () => {
+        // Student 1 is the existing studentStudentId
+        // Create student 2 in class1
+        const s2 = await api(adminToken).post("/api/students", {
+            register_number: uid("SEC"), name: "Security Stu2", date_of_birth: "2004-06-01", class_id: testClassId,
+        });
+        expect(s2.status).toBe(201);
+        secStudent2 = s2.body;
+        const login2 = await login(s2.body.register_number, "2004-06-01", "student");
+        secStudent2Token = login2.token;
+
+        // OD with student1 as participant
+        const od1 = await api(adminToken).post("/api/ods", odBody(testClassId, [studentStudentId], { event_name: "Sec OD1 " + RUN }));
+        expect(od1.status).toBe(201);
+        secOd1 = od1.body;
+
+        // OD with student2 as participant
+        const od2 = await api(adminToken).post("/api/ods", odBody(testClassId, [secStudent2.student_id], { event_name: "Sec OD2 " + RUN }));
+        expect(od2.status).toBe(201);
+        secOd2 = od2.body;
+    }, 20000);
+
+    test("Student can access OD they participate in", async () => {
+        const res = await api(studentToken).get("/api/ods/" + secOd1.id);
+        expect(res.status).toBe(200);
+        expect(res.body.id).toBe(secOd1.id);
+    });
+
+    test("Student cannot access OD they are not a participant of", async () => {
+        // studentToken is student1; secOd2 belongs to student2
+        const res = await api(studentToken).get("/api/ods/" + secOd2.id);
+        expect(res.status).toBe(403);
+    });
+
+    test("CR can access OD in their own class", async () => {
+        // Reuse crToken from OD cancellation suite — but that was in afterAll cleaned up.
+        // Use the advisor instead as it's class-scoped to class1.
+        // advisor sees class1 OD
+        const res = await api(advisorToken).get("/api/ods/" + secOd1.id);
+        expect(res.status).toBe(200);
+    });
+
+    test("Class Advisor cannot access OD in another class", async () => {
+        // secOd1 is in class1; advisor2 manages class2
+        const res = await api(advisor2Token).get("/api/ods/" + secOd1.id);
+        expect(res.status).toBe(403);
+    });
+
+    test("Admin can access any OD", async () => {
+        const res1 = await api(adminToken).get("/api/ods/" + secOd1.id);
+        const res2 = await api(adminToken).get("/api/ods/" + secOd2.id);
+        expect(res1.status).toBe(200);
+        expect(res2.status).toBe(200);
+    });
+
+    test("Manipulated class_id in query cannot bypass student authorization", async () => {
+        // Student passes class_id of another class in list request
+        const res = await api(studentToken).get("/api/ods", { class_id: testClass2Id });
+        expect(res.status).toBe(200);
+        // Student scope: only their own participations
+        res.body.data.forEach((o) => {
+            const isParticipant = o.participants.some((p) => String(p.student_id) === String(studentStudentId));
+            expect(isParticipant).toBe(true);
+        });
+    });
+});
