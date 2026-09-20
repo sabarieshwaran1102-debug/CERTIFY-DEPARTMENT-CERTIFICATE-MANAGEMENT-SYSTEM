@@ -24,6 +24,10 @@ class ClassModel {
             values.push(filters.academic_year_id);
             conditions.push(`c.academic_year_id = $${values.length}`);
         }
+        // Default: return only active classes unless caller explicitly passes active_only=false
+        if (filters.active_only !== 'false') {
+            conditions.push(`c.active = TRUE`);
+        }
         const result = await pool.query(
             `SELECT c.*, d.name AS department_name, d.code AS department_code, ay.name AS academic_year_name
              FROM classes c
