@@ -1,148 +1,177 @@
 import { useContext, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import userService from '../services/userService';
+import { PageHeader, SectionCard, Btn, Field, Input, Alert } from '../components/ui/index';
 
-const AdminDashboard = () => {
-    const { user, logout } = useContext(AuthContext);
-    const navigate = useNavigate();
-    const [faculty, setFaculty] = useState([]);
-    const [advisors, setAdvisors] = useState([]);
-    const [activeSection, setActiveSection] = useState('faculty');
-    // Faculty form
-    const [fUsername, setFUsername] = useState('');
-    const [fPassword, setFPassword] = useState('');
-    // Advisor form
-    const [aUsername, setAUsername] = useState('');
-    const [aPassword, setAPassword] = useState('');
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
+export default function AdminDashboard() {
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initSection = searchParams.get('section') || 'faculty';
 
-    const notify = (m, isErr = false) => { if (isErr) { setError(m); setMessage(''); } else { setMessage(m); setError(''); } };
+  const [activeSection, setActiveSection] = useState(initSection);
+  const [faculty, setFaculty] = useState([]);
+  const [advisors, setAdvisors] = useState([]);
+  const [fUsername, setFUsername] = useState('');
+  const [fPassword, setFPassword] = useState('');
+  const [aUsername, setAUsername] = useState('');
+  const [aPassword, setAPassword] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
 
-    const loadAll = async () => {
-        try {
-            const [f, a] = await Promise.all([userService.getFaculty(), userService.getClassAdvisors()]);
-            setFaculty(f.data || []);
-            setAdvisors(a.data || []);
-        } catch (e) { notify(e.error || 'Unable to load accounts.', true); }
-    };
+  const notify = (m, isErr = false) => { if (isErr) { setErr(m); setMsg(''); } else { setMsg(m); setErr(''); } };
 
-    useEffect(() => { loadAll(); }, []);
+  const loadAll = async () => {
+    try {
+      const [f, a] = await Promise.all([userService.getFaculty(), userService.getClassAdvisors()]);
+      setFaculty(f.data || []);
+      setAdvisors(a.data || []);
+    } catch (e) { notify(e?.error || 'Unable to load accounts', true); }
+  };
 
-    const createFaculty = async (e) => {
-        e.preventDefault();
-        try {
-            await userService.createFaculty(fUsername, fPassword);
-            setFUsername(''); setFPassword('');
-            notify('Coordinating Faculty account created.');
-            loadAll();
-        } catch (e) { notify(e.error || 'Failed.', true); }
-    };
+  useEffect(() => { loadAll(); }, []);
 
-    const toggleFaculty = async (account) => {
-        try { await userService.updateFaculty(account.user_id, { is_active: !account.is_active }); loadAll(); }
-        catch (e) { notify(e.error || 'Failed.', true); }
-    };
+  const createFaculty = async (e) => {
+    e.preventDefault();
+    try {
+      await userService.createFaculty(fUsername, fPassword);
+      setFUsername(''); setFPassword('');
+      notify('Coordinating Faculty account created.');
+      loadAll();
+    } catch (e) { notify(e?.error || 'Failed', true); }
+  };
 
-    const createAdvisor = async (e) => {
-        e.preventDefault();
-        try {
-            await userService.createClassAdvisor(aUsername, aPassword);
-            setAUsername(''); setAPassword('');
-            notify('Class Advisor account created.');
-            loadAll();
-        } catch (e) { notify(e.error || 'Failed.', true); }
-    };
+  const createAdvisor = async (e) => {
+    e.preventDefault();
+    try {
+      await userService.createClassAdvisor(aUsername, aPassword);
+      setAUsername(''); setAPassword('');
+      notify('Class Advisor account created.');
+      loadAll();
+    } catch (e) { notify(e?.error || 'Failed', true); }
+  };
 
-    const toggleAdvisor = async (account) => {
-        try { await userService.updateClassAdvisor(account.user_id, { is_active: !account.is_active }); loadAll(); }
-        catch (e) { notify(e.error || 'Failed.', true); }
-    };
+  const toggleFaculty = async (account) => {
+    try { await userService.updateFaculty(account.user_id, { is_active: !account.is_active }); loadAll(); }
+    catch (e) { notify(e?.error || 'Failed', true); }
+  };
 
-    return (
-        <div className="container-main p-6">
-            <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                        <p className="text-gray-600">{user?.username} · {user?.role}</p>
-                    </div>
-                    <div className="flex gap-3">
-                        <button className="btn-primary" onClick={() => navigate('/management')}>Student & Class Management →</button>
-                        <button className="btn-secondary" onClick={logout}>Logout</button>
-                    </div>
-                </div>
+  const toggleAdvisor = async (account) => {
+    try { await userService.updateClassAdvisor(account.user_id, { is_active: !account.is_active }); loadAll(); }
+    catch (e) { notify(e?.error || 'Failed', true); }
+  };
 
-                {message && <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-3 rounded mb-4">{message}</div>}
-                {error && <div className="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded mb-4">{error}</div>}
+  const TABS = ['faculty', 'advisors'];
 
-                {/* Section switcher */}
-                <div className="flex border-b mb-6">
-                    {['faculty', 'advisors'].map((s) => (
-                        <button key={s} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${activeSection === s ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'}`} onClick={() => setActiveSection(s)}>
-                            {s === 'faculty' ? 'Coordinating Faculty' : 'Class Advisors'}
-                        </button>
-                    ))}
-                </div>
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <PageHeader
+        title="Admin Dashboard"
+        subtitle={`${user?.username} · Administrator`}
+        action={
+          <Btn onClick={() => navigate('/management')}>
+            Student &amp; Class Management →
+          </Btn>
+        }
+      />
 
-                {activeSection === 'faculty' && (
-                    <div className="space-y-6">
-                        <div className="card">
-                            <h2 className="text-xl font-bold mb-4">Create Coordinating Faculty</h2>
-                            <form onSubmit={createFaculty} className="grid gap-4 md:grid-cols-3">
-                                <input className="form-input" value={fUsername} onChange={(e) => setFUsername(e.target.value)} placeholder="Username / email" required />
-                                <input className="form-input" type="password" value={fPassword} onChange={(e) => setFPassword(e.target.value)} placeholder="Password (min 8)" minLength="8" required />
-                                <button className="btn-primary" type="submit">Create</button>
-                            </form>
-                        </div>
-                        <div className="card">
-                            <h2 className="text-xl font-bold mb-4">Coordinating Faculty Accounts</h2>
-                            <div className="divide-y">
-                                {faculty.map((a) => (
-                                    <div key={a.user_id} className="flex justify-between items-center py-3">
-                                        <span>{a.username} <span className={`text-xs ml-2 ${a.is_active ? 'text-green-600' : 'text-gray-400'}`}>{a.is_active ? 'Active' : 'Inactive'}</span></span>
-                                        <button className="btn-secondary text-sm" onClick={() => toggleFaculty(a)}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
-                                    </div>
-                                ))}
-                                {faculty.length === 0 && <p className="text-gray-400 py-4">No faculty accounts.</p>}
-                            </div>
-                        </div>
-                    </div>
-                )}
+      <div className="p-6 space-y-5">
+        <Alert type="success" message={msg} onClose={() => setMsg('')} />
+        <Alert type="error" message={err} onClose={() => setErr('')} />
 
-                {activeSection === 'advisors' && (
-                    <div className="space-y-6">
-                        <div className="card">
-                            <h2 className="text-xl font-bold mb-4">Create Class Advisor</h2>
-                            <p className="text-sm text-gray-500 mb-3">After creating an account, assign them to a class in Student & Class Management.</p>
-                            <form onSubmit={createAdvisor} className="grid gap-4 md:grid-cols-3">
-                                <input className="form-input" value={aUsername} onChange={(e) => setAUsername(e.target.value)} placeholder="Username / email" required />
-                                <input className="form-input" type="password" value={aPassword} onChange={(e) => setAPassword(e.target.value)} placeholder="Password (min 8)" minLength="8" required />
-                                <button className="btn-primary" type="submit">Create</button>
-                            </form>
-                        </div>
-                        <div className="card">
-                            <h2 className="text-xl font-bold mb-4">Class Advisor Accounts</h2>
-                            <div className="divide-y">
-                                {advisors.map((a) => (
-                                    <div key={a.user_id} className="flex justify-between items-center py-3">
-                                        <div>
-                                            <span>{a.username}</span>
-                                            <span className={`text-xs ml-2 ${a.is_active ? 'text-green-600' : 'text-gray-400'}`}>{a.is_active ? 'Active' : 'Inactive'}</span>
-                                            {a.assigned_class_id && <span className="text-xs ml-2 text-blue-600">Assigned to class #{a.assigned_class_id}</span>}
-                                        </div>
-                                        <button className="btn-secondary text-sm" onClick={() => toggleAdvisor(a)}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
-                                    </div>
-                                ))}
-                                {advisors.length === 0 && <p className="text-gray-400 py-4">No class advisor accounts.</p>}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-0">
+          {TABS.map(s => (
+            <button key={s} onClick={() => setActiveSection(s)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeSection === s ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}>
+              {s === 'faculty' ? 'Coordinating Faculty' : 'Class Advisors'}
+            </button>
+          ))}
         </div>
-    );
-};
 
-export default AdminDashboard;
+        {activeSection === 'faculty' && (
+          <div className="space-y-5">
+            <SectionCard title="Create Coordinating Faculty">
+              <div className="p-5">
+                <form onSubmit={createFaculty} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Field label="Username / Email" required>
+                    <Input value={fUsername} onChange={e => setFUsername(e.target.value)} placeholder="faculty@college.edu" required />
+                  </Field>
+                  <Field label="Password" required>
+                    <Input type="password" value={fPassword} onChange={e => setFPassword(e.target.value)} placeholder="Min 8 characters" minLength="8" required />
+                  </Field>
+                  <div className="flex items-end"><Btn type="submit" className="w-full justify-center">Create</Btn></div>
+                </form>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Coordinating Faculty Accounts">
+              <div className="divide-y divide-gray-100">
+                {faculty.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-gray-400">No faculty accounts.</p>
+                ) : faculty.map(a => (
+                  <div key={a.user_id} className="flex items-center justify-between px-5 py-3.5">
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">{a.username}</span>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${a.is_active ? 'text-green-700 bg-green-50' : 'text-gray-400 bg-gray-100'}`}>
+                        {a.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <button onClick={() => toggleFaculty(a)} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
+                      {a.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+        )}
+
+        {activeSection === 'advisors' && (
+          <div className="space-y-5">
+            <SectionCard title="Create Class Advisor">
+              <div className="p-5">
+                <p className="text-xs text-gray-400 mb-4">After creating, assign them to a class in Student &amp; Class Management.</p>
+                <form onSubmit={createAdvisor} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Field label="Username / Email" required>
+                    <Input value={aUsername} onChange={e => setAUsername(e.target.value)} placeholder="advisor@college.edu" required />
+                  </Field>
+                  <Field label="Password" required>
+                    <Input type="password" value={aPassword} onChange={e => setAPassword(e.target.value)} placeholder="Min 8 characters" minLength="8" required />
+                  </Field>
+                  <div className="flex items-end"><Btn type="submit" className="w-full justify-center">Create</Btn></div>
+                </form>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Class Advisor Accounts">
+              <div className="divide-y divide-gray-100">
+                {advisors.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-gray-400">No class advisor accounts.</p>
+                ) : advisors.map(a => (
+                  <div key={a.user_id} className="flex items-center justify-between px-5 py-3.5">
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">{a.username}</span>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${a.is_active ? 'text-green-700 bg-green-50' : 'text-gray-400 bg-gray-100'}`}>
+                        {a.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      {a.assigned_class_id && (
+                        <span className="ml-2 text-xs text-indigo-500">Class #{a.assigned_class_id}</span>
+                      )}
+                    </div>
+                    <button onClick={() => toggleAdvisor(a)} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
+                      {a.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

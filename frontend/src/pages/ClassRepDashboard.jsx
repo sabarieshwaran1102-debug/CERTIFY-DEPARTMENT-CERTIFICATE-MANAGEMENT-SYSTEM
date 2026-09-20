@@ -1,188 +1,179 @@
 import { useContext, useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import managementService from '../services/managementService';
+import { LoadingState, ErrorState, PageHeader, SectionCard, StatCard, SearchInput, Pagination, Btn } from '../components/ui/index';
+import Badge from '../components/ui/Badge';
 
-const ClassRepDashboard = () => {
-    const { user, logout } = useContext(AuthContext);
-    const classId = user?.class_id;
+export default function ClassRepDashboard() {
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const classId = user?.class_id;
 
-    const [classInfo, setClassInfo] = useState(null);
-    const [students, setStudents] = useState([]);
-    const [pagination, setPagination] = useState({ total: 0, limit: 25, offset: 0 });
-    const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState('ACTIVE');
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+  const [classInfo, setClassInfo] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, limit: 25, offset: 0 });
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ACTIVE');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-    const loadClass = useCallback(async () => {
-        if (!classId) return;
-        try {
-            const info = await managementService.getClass(classId);
-            setClassInfo(info);
-        } catch { /* silent */ }
-    }, [classId]);
+  useEffect(() => {
+    if (!classId) return;
+    managementService.getClass(classId).then(setClassInfo).catch(() => {});
+  }, [classId]);
 
-    const loadStudents = useCallback(async (offset = 0) => {
-        if (!classId) return;
-        setLoading(true);
-        try {
-            const params = { class_id: classId, limit: pagination.limit, offset };
-            if (search) params.q = search;
-            if (filterStatus) params.status = filterStatus;
-            const result = await managementService.getStudents(params);
-            setStudents(result.data || []);
-            setPagination((p) => ({ ...p, total: result.pagination?.total || 0, offset }));
-        } catch (e) {
-            setError(e?.response?.data?.error || 'Failed to load students.');
-        } finally { setLoading(false); }
-    }, [classId, search, filterStatus, pagination.limit]);
-
-    useEffect(() => { loadClass(); }, [loadClass]);
-    useEffect(() => { loadStudents(0); }, [loadStudents]);
-
-    if (!classId) {
-        return (
-            <div className="container-main p-6 flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <h2 className="text-xl font-bold text-red-600 mb-2">No class assigned</h2>
-                    <p className="text-gray-500">Your Class Representative account is not linked to a class yet. Contact an administrator.</p>
-                    <button className="btn-secondary mt-4" onClick={logout}>Logout</button>
-                </div>
-            </div>
-        );
+  const loadStudents = useCallback(async (pg = 1) => {
+    if (!classId) return;
+    setLoading(true);
+    try {
+      const limit = 25;
+      const params = { class_id: classId, limit, offset: (pg - 1) * limit };
+      if (search) params.q = search;
+      if (filterStatus) params.status = filterStatus;
+      const result = await managementService.getStudents(params);
+      setStudents(result.data || []);
+      setPagination(p => ({ ...p, total: result.pagination?.total || 0 }));
+    } catch (e) {
+      setError(e?.response?.data?.error || 'Failed to load students');
+    } finally {
+      setLoading(false);
     }
+  }, [classId, search, filterStatus]);
 
+  useEffect(() => { loadStudents(page); }, [page, loadStudents]);
+
+  if (!classId) {
     return (
-        <div className="container-main p-6">
-            <div className="max-w-5xl mx-auto">
-                <header className="flex justify-between items-center mb-6">
-                    <div>
-                        <p className="text-sm text-blue-700 uppercase tracking-wide">Class Representative</p>
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            {classInfo?.display_name || 'My Class'}
-                        </h1>
-                        <p className="text-gray-500 text-sm">
-                            {classInfo?.department_name} · {classInfo?.academic_year_name} · {user?.username}
-                        </p>
-                    </div>
-                    <button className="btn-secondary" onClick={logout}>Logout</button>
-                </header>
-
-                {error && (
-                    <div className="bg-red-50 border border-red-300 text-red-800 rounded px-4 py-3 mb-4">
-                        {error}
-                        <button className="ml-4 font-bold" onClick={() => setError('')}>×</button>
-                    </div>
-                )}
-
-                {/* Class summary cards */}
-                {classInfo && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div className="card text-center">
-                            <p className="text-2xl font-bold text-blue-700">{pagination.total}</p>
-                            <p className="text-xs text-gray-500 mt-1">Total Students</p>
-                        </div>
-                        <div className="card text-center">
-                            <p className="text-2xl font-bold text-green-700">{classInfo.students?.filter((s) => s.status === 'ACTIVE').length ?? '—'}</p>
-                            <p className="text-xs text-gray-500 mt-1">Active</p>
-                        </div>
-                        <div className="card text-center">
-                            <p className="text-2xl font-bold text-purple-700">{classInfo.representatives?.length ?? 0}</p>
-                            <p className="text-xs text-gray-500 mt-1">CRs</p>
-                        </div>
-                        <div className="card text-center">
-                            <p className="text-sm font-medium text-gray-700">{classInfo.advisor?.username || 'None'}</p>
-                            <p className="text-xs text-gray-500 mt-1">Class Advisor</p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Student search and list */}
-                <div className="card">
-                    <div className="flex flex-wrap gap-3 mb-4 items-end">
-                        <input
-                            className="form-input w-48"
-                            placeholder="Search name or register…"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && loadStudents(0)}
-                        />
-                        <select
-                            className="form-input w-36"
-                            value={filterStatus}
-                            onChange={(e) => { setFilterStatus(e.target.value); loadStudents(0); }}
-                        >
-                            <option value="">All statuses</option>
-                            <option value="ACTIVE">Active</option>
-                            <option value="INACTIVE">Inactive</option>
-                            <option value="GRADUATED">Graduated</option>
-                        </select>
-                        <button className="btn-primary" onClick={() => loadStudents(0)}>Search</button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead>
-                                <tr className="border-b text-gray-500">
-                                    <th className="py-2 pr-4">Register</th>
-                                    <th className="pr-4">Name</th>
-                                    <th className="pr-4">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {students.map((s) => (
-                                    <tr key={s.student_id} className="border-b hover:bg-gray-50">
-                                        <td className="py-2 pr-4 font-mono text-xs">{s.register_number}</td>
-                                        <td className="pr-4">{s.name}</td>
-                                        <td>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                {s.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {!loading && students.length === 0 && (
-                                    <tr><td colSpan={3} className="py-8 text-center text-gray-400">No students found</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="flex justify-between items-center mt-3 text-sm text-gray-500">
-                        <span>{pagination.total} students in this class</span>
-                        <div className="flex gap-2">
-                            <button
-                                disabled={pagination.offset === 0}
-                                onClick={() => loadStudents(Math.max(0, pagination.offset - pagination.limit))}
-                                className="btn-secondary disabled:opacity-40"
-                            >← Prev</button>
-                            <span>Page {Math.floor(pagination.offset / pagination.limit) + 1}</span>
-                            <button
-                                disabled={pagination.offset + pagination.limit >= pagination.total}
-                                onClick={() => loadStudents(pagination.offset + pagination.limit)}
-                                className="btn-secondary disabled:opacity-40"
-                            >Next →</button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Current CRs */}
-                {classInfo?.representatives?.length > 0 && (
-                    <div className="card mt-6">
-                        <h2 className="font-bold mb-3">Class Representatives</h2>
-                        <div className="divide-y text-sm">
-                            {classInfo.representatives.map((cr) => (
-                                <div key={cr.student_id} className="py-2">
-                                    <strong>{cr.name}</strong>
-                                    <span className="text-gray-400 text-xs ml-2">{cr.register_number}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#d97706" strokeWidth="1.8">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <h2 className="font-display font-bold text-base text-gray-900 mb-1">No class assigned</h2>
+          <p className="text-sm text-gray-400">Your Class Representative account is not linked to a class yet. Contact an administrator.</p>
         </div>
+      </div>
     );
-};
+  }
 
-export default ClassRepDashboard;
+  const activeCount = classInfo?.students?.filter(s => s.status === 'ACTIVE').length ?? 0;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <PageHeader
+        title={classInfo?.display_name || 'My Class'}
+        subtitle={`${classInfo?.department_name || ''} · ${classInfo?.academic_year_name || ''} · ${user?.username || ''}`}
+        action={
+          <Btn onClick={() => navigate('/ods/create')}>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Register OD
+          </Btn>
+        }
+      />
+
+      <div className="p-6 space-y-5">
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Total Students" value={pagination.total}
+            iconColor="text-indigo-600 bg-indigo-50"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>} />
+          <StatCard label="Active" value={activeCount}
+            iconColor="text-green-600 bg-green-50"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>} />
+          <StatCard label="CRs" value={classInfo?.representatives?.length ?? 0}
+            iconColor="text-purple-600 bg-purple-50"
+            icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>} />
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-xs font-medium text-gray-500 mb-1">Class Advisor</p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{classInfo?.advisor?.username || 'Not assigned'}</p>
+          </div>
+        </div>
+
+        {/* OD quick link */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#4f46e5" strokeWidth="2">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-indigo-700">On-Duty Records</p>
+              <p className="text-xs text-indigo-500">View and manage ODs for your class</p>
+            </div>
+          </div>
+          <button onClick={() => navigate('/ods')} className="px-3 py-1.5 text-xs font-semibold text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-100 transition-colors whitespace-nowrap">
+            View ODs
+          </button>
+        </div>
+
+        {/* Students */}
+        <SectionCard title="Class Roster">
+          <div className="p-4 flex flex-wrap gap-3 border-b border-gray-100">
+            <SearchInput value={search} onChange={setSearch} placeholder="Search name or register…" />
+            <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
+              className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white">
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="GRADUATED">Graduated</option>
+            </select>
+            <Btn size="sm" onClick={() => { setPage(1); loadStudents(1); }}>Search</Btn>
+          </div>
+
+          {loading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={() => loadStudents(page)} /> : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Register</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {students.length === 0 ? (
+                      <tr><td colSpan={3} className="py-8 text-center text-sm text-gray-400">No students found</td></tr>
+                    ) : students.map(s => (
+                      <tr key={s.student_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-mono text-indigo-600 font-medium">{s.register_number}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{s.name}</td>
+                        <td className="px-4 py-3"><Badge variant={(s.status || '').toLowerCase()} label={s.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination total={pagination.total} perPage={25} page={page} onPage={p => { setPage(p); loadStudents(p); }} />
+            </>
+          )}
+        </SectionCard>
+
+        {/* CRs */}
+        {classInfo?.representatives?.length > 0 && (
+          <SectionCard title="Class Representatives">
+            <div className="divide-y divide-gray-100">
+              {classInfo.representatives.map(cr => (
+                <div key={cr.student_id} className="flex items-center gap-3 px-5 py-3">
+                  <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {(cr.name || '').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{cr.name}</p>
+                    <p className="text-xs text-gray-400">{cr.register_number}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -37,9 +37,17 @@ describe('Authentication flow', () => {
       </MemoryRouter>
     );
 
-    await user.type(screen.getByPlaceholderText(/enter register number/i), '2024001');
+    // The new LoginPage has separate Staff/Admin and Student tabs.
+    // Switch to the Student tab so the registration-number and DOB fields appear.
+    await user.click(screen.getByRole('button', { name: /student/i }));
+
+    // Now the student-specific fields are rendered:
+    // - Username label: "Registration Number"
+    // - Password label: "Date of Birth"
+    // - Submit button: "Sign In"
+    await user.type(screen.getByLabelText(/registration number/i), '2024001');
     await user.type(screen.getByLabelText(/date of birth/i), '2005-06-15');
-    await user.click(screen.getByRole('button', { name: /login/i }));
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
       expect(authService.login).toHaveBeenCalledWith({
