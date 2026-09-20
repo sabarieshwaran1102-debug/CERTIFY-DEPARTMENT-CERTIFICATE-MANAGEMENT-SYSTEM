@@ -9,6 +9,7 @@ import certificatesRoutes from './routes/certificates.js';
 import reportsRoutes from './routes/reports.js';
 import userRoutes from './routes/users.js';
 import organizationRoutes from './routes/organization.js';
+import odRoutes from './routes/ods.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -68,6 +69,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/od-records', odRecordsRoutes);
+app.use('/api/ods', odRoutes);
 app.use('/api/certificates', certificatesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/users', userRoutes);
