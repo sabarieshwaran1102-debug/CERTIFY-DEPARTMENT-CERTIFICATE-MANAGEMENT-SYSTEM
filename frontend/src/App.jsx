@@ -26,10 +26,16 @@ import CertificatesPage from './pages/certificates/CertificatesPage';
 import CertificateDetailPage from './pages/certificates/CertificateDetailPage';
 import UploadCertificatePage from './pages/certificates/UploadCertificatePage';
 
+// Reports & Audit pages
+import ReportsPage from './pages/reports/ReportsPage';
+import AuditPage from './pages/audit/AuditPage';
+
 // Roles that can access OD pages
 const OD_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor', 'class_representative', 'student_representative', 'student'];
 const MANAGEMENT_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor'];
 const OD_CREATE_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor', 'class_representative'];
+const REPORTS_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor'];
+const AUDIT_ROLES = ['super_admin', 'admin'];
 
 function App() {
   return (
@@ -69,6 +75,14 @@ function App() {
             } />
             <Route path="/certificates/:id" element={
               <ProtectedRoute requiredRoles={OD_ROLES}><CertificateDetailPage /></ProtectedRoute>
+            } />
+
+            {/* Reports & Audit routes */}
+            <Route path="/reports" element={
+              <ProtectedRoute requiredRoles={REPORTS_ROLES}><ReportsPage /></ProtectedRoute>
+            } />
+            <Route path="/audit" element={
+              <ProtectedRoute requiredRoles={AUDIT_ROLES}><AuditPage /></ProtectedRoute>
             } />
 
             {/* Role-specific dashboards */}

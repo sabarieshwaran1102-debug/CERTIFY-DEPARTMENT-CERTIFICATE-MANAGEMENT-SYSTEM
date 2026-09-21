@@ -31,7 +31,8 @@ const NAV_ITEMS = {
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
     { path: '/certificates', label: 'Certificates', icon: 'badge' },
-    { path: '/management?tab=Audit', label: 'Audit Logs', icon: 'clipboard' },
+    { path: '/reports', label: 'Reports', icon: 'chart' },
+    { path: '/audit', label: 'Audit Log', icon: 'clipboard' },
   ],
   admin: [
     { path: '/admin', label: 'Dashboard', icon: 'home' },
@@ -40,13 +41,14 @@ const NAV_ITEMS = {
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
     { path: '/certificates', label: 'Certificates', icon: 'badge' },
-    { path: '/management?tab=Audit', label: 'Audit Logs', icon: 'clipboard' },
+    { path: '/reports', label: 'Reports', icon: 'chart' },
+    { path: '/audit', label: 'Audit Log', icon: 'clipboard' },
   ],
   coordinating_faculty: [
     { path: '/faculty', label: 'Dashboard', icon: 'home' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
     { path: '/certificates', label: 'Certificates', icon: 'badge' },
-    { path: '/faculty?tab=reports', label: 'Reports', icon: 'chart' },
+    { path: '/reports', label: 'Reports', icon: 'chart' },
   ],
   class_advisor: [
     { path: '/management', label: 'Dashboard', icon: 'home' },
@@ -56,6 +58,7 @@ const NAV_ITEMS = {
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/management?tab=Bulk+Import', label: 'Bulk Import', icon: 'upload' },
     { path: '/certificates', label: 'Certificates', icon: 'badge' },
+    { path: '/reports', label: 'Reports', icon: 'chart' },
   ],
   class_representative: [
     { path: '/class-rep', label: 'Dashboard', icon: 'home' },
