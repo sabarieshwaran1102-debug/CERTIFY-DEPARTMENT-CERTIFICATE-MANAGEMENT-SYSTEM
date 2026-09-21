@@ -3,7 +3,7 @@
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users
     ADD CONSTRAINT users_role_check
-    CHECK (role IN ('super_admin', 'admin', 'coordinating_faculty', 'class_advisor', 'student_representative', 'student'));
+    CHECK (role IN ('super_admin', 'admin', 'coordinating_faculty', 'class_advisor', 'class_representative', 'student_representative', 'student'));
 
 CREATE TABLE IF NOT EXISTS class_advisor_history (
     id BIGSERIAL PRIMARY KEY,
