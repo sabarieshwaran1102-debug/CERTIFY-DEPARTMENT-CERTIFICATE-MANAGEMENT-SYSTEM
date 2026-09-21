@@ -21,6 +21,32 @@ class AcademicYear {
         );
         return result.rows[0];
     }
+
+    /**
+     * Activate an academic year.
+     * Does NOT deactivate others — the system supports multiple active years
+     * (admin may manage several simultaneously). Use deactivate to close one.
+     */
+    static async activate(id) {
+        const result = await pool.query(
+            `UPDATE academic_years SET active = TRUE, updated_at = NOW() WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        return result.rows[0] || null;
+    }
+
+    /**
+     * Deactivate an academic year.
+     * Preserves all historical OD and certificate records.
+     * Does NOT delete or modify classes, students, ODs, or certificates.
+     */
+    static async deactivate(id) {
+        const result = await pool.query(
+            `UPDATE academic_years SET active = FALSE, end_date = COALESCE(end_date, CURRENT_DATE), updated_at = NOW() WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        return result.rows[0] || null;
+    }
 }
 
 export default AcademicYear;

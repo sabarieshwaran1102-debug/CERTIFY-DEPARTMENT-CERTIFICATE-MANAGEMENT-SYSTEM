@@ -27,6 +27,7 @@ import OD from '../models/OD.js';
 import pool from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { getCertificateSubdirectory, ensureStorageDirectory } from '../config/storage.js';
+import * as emailService from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -136,6 +137,25 @@ async function assertReviewAccess(req, cert) {
     throw new AppError('Insufficient permissions', 'FORBIDDEN', 403);
 }
 
+/**
+ * Load student email for notifications.
+ * Students don't always have email — use username as fallback contact identifier.
+ * Returns { studentEmail, studentName } or { studentEmail: null, studentName }.
+ */
+async function loadStudentContact(studentId) {
+    const r = await pool.query(
+        `SELECT s.name, u.username
+         FROM students s
+         LEFT JOIN users u ON u.student_id = s.student_id AND u.role = 'student'
+         WHERE s.student_id = $1`, [studentId]
+    );
+    const row = r.rows[0];
+    if (!row) return { studentEmail: null, studentName: 'Student' };
+    // Use username as email if it looks like an email, otherwise null
+    const email = row.username && row.username.includes('@') ? row.username : null;
+    return { studentEmail: email, studentName: row.name || 'Student' };
+}
+
 // ── POST /api/od-certificates  (submit or replace) ────────────────────────────
 router.post('/', verifyToken, upload.single('file'), async (req, res, next) => {
     if (!SUBMIT_ROLES.includes(req.user.role))
@@ -211,6 +231,16 @@ router.post('/', verifyToken, upload.single('file'), async (req, res, next) => {
         }
 
         await client.query('COMMIT');
+
+        // Send notification (fire-and-forget — must not block or throw)
+        loadStudentContact(studentId).then(({ studentEmail, studentName }) => {
+            emailService.notifyCertificateSubmitted({
+                studentEmail, studentName,
+                odNumber: od.od_number,
+                eventName: od.event_name,
+                isLate: late,
+            }).catch(() => {});
+        }).catch(() => {});
 
         const full = await OdCertificate.getById(certId);
         return res.status(existing ? 200 : 201).json(full);
@@ -398,6 +428,17 @@ router.patch('/:id(\\d+)/verify', verifyToken, async (req, res, next) => {
         await OdCertificate.verify(cert.id, req.user.user_id, client);
         await client.query('COMMIT');
 
+        // Notification
+        OdCertificate.getById(cert.id).then((updated) => {
+            loadStudentContact(updated.student_id).then(({ studentEmail, studentName }) => {
+                emailService.notifyCertificateVerified({
+                    studentEmail, studentName,
+                    odNumber: updated.od_number,
+                    eventName: updated.event_name,
+                }).catch(() => {});
+            }).catch(() => {});
+        }).catch(() => {});
+
         return res.json(await OdCertificate.getById(cert.id));
     } catch (err) { await client.query('ROLLBACK'); return next(err); }
     finally { client.release(); }
@@ -424,6 +465,18 @@ router.patch('/:id(\\d+)/reject', verifyToken, async (req, res, next) => {
         await OdCertificate.reject(cert.id, req.user.user_id, reason, client);
         await client.query('COMMIT');
 
+        // Notification
+        OdCertificate.getById(cert.id).then((updated) => {
+            loadStudentContact(updated.student_id).then(({ studentEmail, studentName }) => {
+                emailService.notifyCertificateRejected({
+                    studentEmail, studentName,
+                    odNumber: updated.od_number,
+                    eventName: updated.event_name,
+                    reason,
+                }).catch(() => {});
+            }).catch(() => {});
+        }).catch(() => {});
+
         return res.json(await OdCertificate.getById(cert.id));
     } catch (err) { await client.query('ROLLBACK'); return next(err); }
     finally { client.release(); }
@@ -446,6 +499,17 @@ router.patch('/:id(\\d+)/approve-late', verifyToken, async (req, res, next) => {
         await client.query('BEGIN');
         await OdCertificate.approveLate(cert.id, req.user.user_id, client);
         await client.query('COMMIT');
+
+        // Notification
+        OdCertificate.getById(cert.id).then((updated) => {
+            loadStudentContact(updated.student_id).then(({ studentEmail, studentName }) => {
+                emailService.notifyLateApproved({
+                    studentEmail, studentName,
+                    odNumber: updated.od_number,
+                    eventName: updated.event_name,
+                }).catch(() => {});
+            }).catch(() => {});
+        }).catch(() => {});
 
         return res.json(await OdCertificate.getById(cert.id));
     } catch (err) { await client.query('ROLLBACK'); return next(err); }
@@ -472,6 +536,18 @@ router.patch('/:id(\\d+)/reject-late', verifyToken, async (req, res, next) => {
         await client.query('BEGIN');
         await OdCertificate.rejectLate(cert.id, req.user.user_id, reason, client);
         await client.query('COMMIT');
+
+        // Notification
+        OdCertificate.getById(cert.id).then((updated) => {
+            loadStudentContact(updated.student_id).then(({ studentEmail, studentName }) => {
+                emailService.notifyLateRejected({
+                    studentEmail, studentName,
+                    odNumber: updated.od_number,
+                    eventName: updated.event_name,
+                    reason,
+                }).catch(() => {});
+            }).catch(() => {});
+        }).catch(() => {});
 
         return res.json(await OdCertificate.getById(cert.id));
     } catch (err) { await client.query('ROLLBACK'); return next(err); }

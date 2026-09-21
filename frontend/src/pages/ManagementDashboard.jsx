@@ -148,6 +148,59 @@ const ManagementDashboard = () => {
     const [yearForm, setYearForm] = useState({ name: '', start_date: '', end_date: '' });
     const [classForm, setClassForm] = useState({ department_id: '', academic_year_id: '', year_of_study: '', section: '', display_name: '' });
 
+    // ── Academic Year Lifecycle ───────────────────────────────────────────────
+    const [promoteSource, setPromoteSource] = useState(null); // academic year object being promoted
+    const [promoteTargetId, setPromoteTargetId] = useState('');
+    const [classMappings, setClassMappings] = useState([{ from_class_id: '', to_class_id: '' }]);
+    const [promoteNotes, setPromoteNotes] = useState('');
+    const [promoteLoading, setPromoteLoading] = useState(false);
+
+    const activateYear = async (year) => {
+        try {
+            await managementService.activateAcademicYear(year.id);
+            notify(`Academic year "${year.name}" activated.`);
+            loadOrg();
+        } catch (ex) { notify(ex?.response?.data?.error || 'Failed to activate', true); }
+    };
+
+    const deactivateYear = async (year) => {
+        if (!window.confirm(`Deactivate academic year "${year.name}"? It will no longer be the active year.`)) return;
+        try {
+            await managementService.deactivateAcademicYear(year.id);
+            notify(`Academic year "${year.name}" deactivated.`);
+            loadOrg();
+        } catch (ex) { notify(ex?.response?.data?.error || 'Failed to deactivate', true); }
+    };
+
+    const openPromote = (year) => {
+        setPromoteSource(year);
+        setPromoteTargetId('');
+        setClassMappings([{ from_class_id: '', to_class_id: '' }]);
+        setPromoteNotes('');
+    };
+
+    const addClassMapping = () => setClassMappings((m) => [...m, { from_class_id: '', to_class_id: '' }]);
+    const removeClassMapping = (i) => setClassMappings((m) => m.filter((_, idx) => idx !== i));
+    const updateClassMapping = (i, field, val) =>
+        setClassMappings((m) => m.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
+
+    const submitPromotion = async (e) => {
+        e.preventDefault();
+        const validMappings = classMappings.filter((m) => m.from_class_id && m.to_class_id);
+        setPromoteLoading(true);
+        try {
+            const result = await managementService.promoteStudents(promoteSource.id, {
+                target_academic_year_id: promoteTargetId,
+                class_mappings: validMappings,
+                notes: promoteNotes || undefined,
+            });
+            notify(`Promotion complete — ${result.promoted ?? result.data?.promoted ?? 0} student(s) promoted.`);
+            setPromoteSource(null);
+            loadOrg();
+        } catch (ex) { notify(ex?.response?.data?.error || 'Promotion failed', true); }
+        finally { setPromoteLoading(false); }
+    };
+
     const submitDept = async (e) => {
         e.preventDefault();
         try { await managementService.createDepartment(deptForm); notify('Department created.'); setDeptForm({ name: '', code: '' }); loadOrg(); }
@@ -581,13 +634,35 @@ const ManagementDashboard = () => {
                                     <Field label="End Date"><Input type="date" value={yearForm.end_date} onChange={(e) => setYearForm({ ...yearForm, end_date: e.target.value })} /></Field>
                                     <Btn type="submit" className="w-full justify-center">Create Academic Year</Btn>
                                 </form>
-                                <div className="border-t border-gray-100 pt-3 space-y-1 max-h-48 overflow-y-auto">
+                                <div className="border-t border-gray-100 pt-3 space-y-2 max-h-72 overflow-y-auto">
                                     {orgLoading ? <LoadingState message="" /> : academicYears.length === 0 ? (
                                         <p className="text-sm text-gray-400 text-center py-4">No academic years yet.</p>
                                     ) : academicYears.map((y) => (
-                                        <div key={y.id} className="flex items-center justify-between py-2 px-1">
-                                            <span className="text-sm text-gray-900">{y.name}</span>
-                                            {y.active && <Badge variant="active" label="Active" />}
+                                        <div key={y.id} className="flex flex-col gap-1.5 py-2 px-1 border-b border-gray-50 last:border-0">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-gray-900">{y.name}</span>
+                                                {y.active && <Badge variant="active" label="Active" />}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {!y.active && (
+                                                    <button
+                                                        onClick={() => activateYear(y)}
+                                                        className="px-2 py-1 text-xs font-medium text-green-700 border border-green-200 rounded-md hover:bg-green-50 transition-colors"
+                                                    >Activate</button>
+                                                )}
+                                                {y.active && (
+                                                    <button
+                                                        onClick={() => deactivateYear(y)}
+                                                        className="px-2 py-1 text-xs font-medium text-amber-700 border border-amber-200 rounded-md hover:bg-amber-50 transition-colors"
+                                                    >Deactivate</button>
+                                                )}
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={() => openPromote(y)}
+                                                        className="px-2 py-1 text-xs font-medium text-indigo-700 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors"
+                                                    >Promote Students</button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -948,6 +1023,90 @@ const ManagementDashboard = () => {
                     </div>
                 )}
             </div>
+
+            {/* Promote Students Modal */}
+            {promoteSource && (
+                <Modal title={`Promote Students from ${promoteSource.name}`} onClose={() => setPromoteSource(null)}>
+                    <form onSubmit={submitPromotion} className="space-y-4">
+                        <Field label="Target Academic Year" required>
+                            <Select
+                                value={promoteTargetId}
+                                onChange={(e) => setPromoteTargetId(e.target.value)}
+                                required
+                            >
+                                <option value="">Select target year…</option>
+                                {academicYears
+                                    .filter((y) => y.id !== promoteSource.id)
+                                    .map((y) => <option key={y.id} value={y.id}>{y.name}</option>)
+                                }
+                            </Select>
+                        </Field>
+
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium text-gray-700">Class Mappings</p>
+                                <button
+                                    type="button"
+                                    onClick={addClassMapping}
+                                    className="px-2.5 py-1 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors"
+                                >+ Add Mapping</button>
+                            </div>
+                            {classMappings.map((mapping, i) => (
+                                <div key={i} className="flex items-center gap-2 mb-2">
+                                    <Select
+                                        value={mapping.from_class_id}
+                                        onChange={(e) => updateClassMapping(i, 'from_class_id', e.target.value)}
+                                        className="flex-1"
+                                    >
+                                        <option value="">From class…</option>
+                                        {classes
+                                            .filter((c) => c.academic_year_id === promoteSource.id || String(c.academic_year_id) === String(promoteSource.id))
+                                            .map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)
+                                        }
+                                    </Select>
+                                    <span className="text-gray-400 text-sm">→</span>
+                                    <Select
+                                        value={mapping.to_class_id}
+                                        onChange={(e) => updateClassMapping(i, 'to_class_id', e.target.value)}
+                                        className="flex-1"
+                                    >
+                                        <option value="">To class…</option>
+                                        {classes
+                                            .filter((c) => promoteTargetId && (c.academic_year_id === promoteTargetId || String(c.academic_year_id) === String(promoteTargetId)))
+                                            .map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)
+                                        }
+                                    </Select>
+                                    {classMappings.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeClassMapping(i)}
+                                            className="px-2 py-1 text-xs font-medium text-red-500 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+                                        >✕</button>
+                                    )}
+                                </div>
+                            ))}
+                            {!promoteTargetId && (
+                                <p className="text-xs text-gray-400 mt-1">Select a target year to see available destination classes.</p>
+                            )}
+                        </div>
+
+                        <Field label="Notes (optional)">
+                            <Input
+                                placeholder="Optional notes about this promotion…"
+                                value={promoteNotes}
+                                onChange={(e) => setPromoteNotes(e.target.value)}
+                            />
+                        </Field>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <Btn variant="secondary" type="button" onClick={() => setPromoteSource(null)}>Cancel</Btn>
+                            <Btn type="submit" disabled={promoteLoading || !promoteTargetId}>
+                                {promoteLoading ? 'Promoting…' : 'Promote Students'}
+                            </Btn>
+                        </div>
+                    </form>
+                </Modal>
+            )}
 
             {/* Audit detail modal */}
             {auditDetail && (

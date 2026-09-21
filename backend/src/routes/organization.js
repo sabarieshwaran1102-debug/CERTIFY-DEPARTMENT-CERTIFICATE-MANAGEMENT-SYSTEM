@@ -352,4 +352,206 @@ router.get('/faculty', verifyToken, requireGlobalManagement, async (req, res, ne
     } catch (err) { next(err); }
 });
 
+// ── Academic Year Lifecycle ────────────────────────────────────────────────────
+
+// Activate an academic year (super_admin + admin)
+router.post('/academic-years/:id/activate', ...management, async (req, res, next) => {
+    try {
+        const ay = await AcademicYear.getById(req.params.id);
+        if (!ay) throw new AppError('Academic year not found', 'NOT_FOUND', 404);
+        if (ay.active) throw new AppError('Academic year is already active', 'CONFLICT', 409);
+        const updated = await AcademicYear.activate(req.params.id);
+        await AuditEvent.record({
+            actorUserId: req.user.user_id,
+            action: 'academic_year_activated',
+            targetEntity: 'academic_year',
+            targetId: req.params.id,
+            newData: updated,
+        });
+        res.json(updated);
+    } catch (err) { next(err); }
+});
+
+// Deactivate an academic year (super_admin + admin)
+router.post('/academic-years/:id/deactivate', ...management, async (req, res, next) => {
+    try {
+        const ay = await AcademicYear.getById(req.params.id);
+        if (!ay) throw new AppError('Academic year not found', 'NOT_FOUND', 404);
+        if (!ay.active) throw new AppError('Academic year is already inactive', 'CONFLICT', 409);
+        const updated = await AcademicYear.deactivate(req.params.id);
+        await AuditEvent.record({
+            actorUserId: req.user.user_id,
+            action: 'academic_year_deactivated',
+            targetEntity: 'academic_year',
+            targetId: req.params.id,
+            oldData: ay,
+            newData: updated,
+        });
+        res.json(updated);
+    } catch (err) { next(err); }
+});
+
+/**
+ * POST /academic-years/:id/promote
+ * Bulk-promote students from one academic year's classes to a target academic year.
+ *
+ * Body:
+ *   {
+ *     target_academic_year_id: number,   // required — destination academic year
+ *     class_mappings: [                   // required — per-class promotion plan
+ *       { from_class_id: number, to_class_id: number }
+ *     ],
+ *     notes: string                       // optional
+ *   }
+ *
+ * Behaviour:
+ *   - Validates source and target academic years exist and are distinct.
+ *   - Validates each from_class belongs to source year, to_class belongs to target year.
+ *   - Updates students' class_id, academic_year_id, department, year, section
+ *     to match the destination class.
+ *   - Preserves all existing OD records and certificates (historical records are untouched).
+ *   - Records a promotion history entry and audit event.
+ *   - Wraps everything in a transaction — any error rolls back fully.
+ *
+ * Permissions: super_admin, admin only.
+ */
+router.post('/academic-years/:id/promote', ...management, async (req, res, next) => {
+    const client = await pool.connect();
+    try {
+        const sourceAyId = parseInt(req.params.id, 10);
+        const { target_academic_year_id, class_mappings, notes } = req.body || {};
+
+        if (!target_academic_year_id) throw new AppError('target_academic_year_id is required', 'VALIDATION_ERROR', 400);
+        if (!Array.isArray(class_mappings) || class_mappings.length === 0)
+            throw new AppError('class_mappings must be a non-empty array of { from_class_id, to_class_id }', 'VALIDATION_ERROR', 400);
+        if (String(sourceAyId) === String(target_academic_year_id))
+            throw new AppError('source and target academic years must be different', 'VALIDATION_ERROR', 400);
+
+        // Validate source and target academic years
+        const [sourceAy, targetAy] = await Promise.all([
+            AcademicYear.getById(sourceAyId),
+            AcademicYear.getById(target_academic_year_id),
+        ]);
+        if (!sourceAy) throw new AppError('Source academic year not found', 'NOT_FOUND', 404);
+        if (!targetAy) throw new AppError('Target academic year not found', 'NOT_FOUND', 404);
+
+        // Validate class mappings
+        for (const mapping of class_mappings) {
+            if (!mapping.from_class_id || !mapping.to_class_id)
+                throw new AppError('Each mapping must have from_class_id and to_class_id', 'VALIDATION_ERROR', 400);
+        }
+
+        const fromClassIds = class_mappings.map((m) => m.from_class_id);
+        const toClassIds   = class_mappings.map((m) => m.to_class_id);
+
+        // Load source classes (must belong to source academic year)
+        const srcResult = await pool.query(
+            `SELECT c.*, d.name AS department_name
+             FROM classes c JOIN departments d ON d.id = c.department_id
+             WHERE c.id = ANY($1::bigint[]) AND c.academic_year_id = $2`,
+            [fromClassIds, sourceAyId]
+        );
+        if (srcResult.rows.length !== fromClassIds.length)
+            throw new AppError('One or more from_class_id values do not belong to the source academic year', 'VALIDATION_ERROR', 400);
+        const srcMap = new Map(srcResult.rows.map((c) => [Number(c.id), c]));
+
+        // Load target classes (must belong to target academic year)
+        const tgtResult = await pool.query(
+            `SELECT c.*, d.name AS department_name
+             FROM classes c JOIN departments d ON d.id = c.department_id
+             WHERE c.id = ANY($1::bigint[]) AND c.academic_year_id = $2`,
+            [toClassIds, target_academic_year_id]
+        );
+        if (tgtResult.rows.length !== toClassIds.length)
+            throw new AppError('One or more to_class_id values do not belong to the target academic year', 'VALIDATION_ERROR', 400);
+        const tgtMap = new Map(tgtResult.rows.map((c) => [Number(c.id), c]));
+
+        await client.query('BEGIN');
+
+        let totalPromoted = 0;
+        const classMappingRecord = {};
+
+        for (const mapping of class_mappings) {
+            const fromClass = srcMap.get(Number(mapping.from_class_id));
+            const toClass   = tgtMap.get(Number(mapping.to_class_id));
+
+            // Update all ACTIVE students in the source class
+            const updateResult = await client.query(
+                `UPDATE students
+                 SET class_id         = $1,
+                     academic_year_id = $2,
+                     department       = $3,
+                     year             = $4,
+                     section          = $5,
+                     updated_at       = NOW()
+                 WHERE class_id = $6 AND status = 'ACTIVE'
+                 RETURNING student_id`,
+                [toClass.id, toClass.academic_year_id, toClass.department_name,
+                 toClass.year_of_study, toClass.section, fromClass.id]
+            );
+
+            totalPromoted += updateResult.rows.length;
+            classMappingRecord[String(mapping.from_class_id)] = String(mapping.to_class_id);
+        }
+
+        // Record promotion history
+        const promotionResult = await client.query(
+            `INSERT INTO academic_year_promotions
+               (from_academic_year_id, to_academic_year_id, promoted_by, student_count, class_mapping, notes)
+             VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+             RETURNING id`,
+            [sourceAyId, target_academic_year_id, req.user.user_id,
+             totalPromoted, JSON.stringify(classMappingRecord), notes || null]
+        );
+
+        await AuditEvent.record({
+            actorUserId: req.user.user_id,
+            action: 'academic_year_promotion',
+            targetEntity: 'academic_year',
+            targetId: String(sourceAyId),
+            newData: {
+                from_academic_year_id: sourceAyId,
+                to_academic_year_id: target_academic_year_id,
+                student_count: totalPromoted,
+                promotion_id: promotionResult.rows[0].id,
+            },
+            details: notes || `Promoted ${totalPromoted} students to academic year ${targetAy.name}`,
+            client,
+        });
+
+        await client.query('COMMIT');
+
+        res.status(200).json({
+            promotion_id: promotionResult.rows[0].id,
+            from_academic_year: sourceAy.name,
+            to_academic_year: targetAy.name,
+            students_promoted: totalPromoted,
+            class_mappings_applied: class_mappings.length,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        next(err);
+    } finally {
+        client.release();
+    }
+});
+
+// ── Promotion history ─────────────────────────────────────────────────────────
+router.get('/academic-years/:id/promotions', ...management, async (req, res, next) => {
+    try {
+        const result = await pool.query(
+            `SELECT p.*, u.username AS promoted_by_username,
+                    ay1.name AS from_year_name, ay2.name AS to_year_name
+             FROM academic_year_promotions p
+             JOIN users u ON u.user_id = p.promoted_by
+             JOIN academic_years ay1 ON ay1.id = p.from_academic_year_id
+             JOIN academic_years ay2 ON ay2.id = p.to_academic_year_id
+             WHERE p.from_academic_year_id = $1 OR p.to_academic_year_id = $1
+             ORDER BY p.promoted_at DESC`,
+            [req.params.id]
+        );
+        res.json({ data: result.rows });
+    } catch (err) { next(err); }
+});
+
 export default router;
