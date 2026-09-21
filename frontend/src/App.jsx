@@ -21,6 +21,11 @@ import ODRecordsPage from './pages/ods/ODRecordsPage';
 import CreateODPage from './pages/ods/CreateODPage';
 import ODDetailsPage from './pages/ods/ODDetailsPage';
 
+// Certificate pages
+import CertificatesPage from './pages/certificates/CertificatesPage';
+import CertificateDetailPage from './pages/certificates/CertificateDetailPage';
+import UploadCertificatePage from './pages/certificates/UploadCertificatePage';
+
 // Roles that can access OD pages
 const OD_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor', 'class_representative', 'student_representative', 'student'];
 const MANAGEMENT_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advisor'];
@@ -50,6 +55,20 @@ function App() {
             } />
             <Route path="/ods/:id" element={
               <ProtectedRoute requiredRoles={OD_ROLES}><ODDetailsPage /></ProtectedRoute>
+            } />
+
+            {/* Certificate routes */}
+            <Route path="/certificates" element={
+              <ProtectedRoute requiredRoles={OD_ROLES}><CertificatesPage /></ProtectedRoute>
+            } />
+            <Route path="/certificates/pending" element={
+              <ProtectedRoute requiredRoles={['super_admin','admin','coordinating_faculty','class_advisor']}><CertificatesPage /></ProtectedRoute>
+            } />
+            <Route path="/certificates/upload" element={
+              <ProtectedRoute requiredRoles={['student','class_representative']}><UploadCertificatePage /></ProtectedRoute>
+            } />
+            <Route path="/certificates/:id" element={
+              <ProtectedRoute requiredRoles={OD_ROLES}><CertificateDetailPage /></ProtectedRoute>
             } />
 
             {/* Role-specific dashboards */}

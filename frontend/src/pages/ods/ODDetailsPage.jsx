@@ -164,14 +164,14 @@ export default function ODDetailsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['Register Number', 'Student Name', 'Status'].map(c => (
+                    {['Register Number', 'Student Name', 'Status', 'Certificate'].map(c => (
                       <th key={c} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{c}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {(od.participants || []).length === 0 ? (
-                    <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-400">No participants</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">No participants</td></tr>
                   ) : (od.participants || []).map(p => (
                     <tr key={p.student_id || p.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-mono text-indigo-600 font-medium">{p.register_number}</td>
@@ -184,6 +184,14 @@ export default function ODDetailsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3"><Badge variant={(p.status || '').toLowerCase()} label={p.status} /></td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => navigate('/certificates/upload?od_id=' + od.id)}
+                          className="px-2.5 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors"
+                        >
+                          Upload
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -196,6 +204,15 @@ export default function ODDetailsPage() {
         <div className="space-y-5">
           <SectionCard title="Summary">
             <div className="p-4 space-y-3 text-sm">
+              {od.status === 'active' && (
+                <button
+                  onClick={() => navigate('/certificates?od_id=' + od.id)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors font-medium flex items-center gap-2"
+                >
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="5"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>
+                  View Certificates
+                </button>
+              )}
               <div className="flex justify-between"><span className="text-gray-500">Status</span><Badge variant={od.status} /></div>
               <div className="flex justify-between"><span className="text-gray-500">Participants</span><span className="font-semibold text-gray-900">{Array.isArray(od.participants) ? od.participants.length : '—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Class</span><span className="font-medium text-gray-900 text-right ml-2">{od.class_name || '—'}</span></div>

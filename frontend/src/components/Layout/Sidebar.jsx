@@ -30,6 +30,7 @@ const NAV_ITEMS = {
     { path: '/management?tab=Advisors', label: 'Class Advisors', icon: 'check-badge' },
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
+    { path: '/certificates', label: 'Certificates', icon: 'badge' },
     { path: '/management?tab=Audit', label: 'Audit Logs', icon: 'clipboard' },
   ],
   admin: [
@@ -38,12 +39,13 @@ const NAV_ITEMS = {
     { path: '/admin?section=advisors', label: 'Faculty / Advisors', icon: 'user' },
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
+    { path: '/certificates', label: 'Certificates', icon: 'badge' },
     { path: '/management?tab=Audit', label: 'Audit Logs', icon: 'clipboard' },
   ],
   coordinating_faculty: [
     { path: '/faculty', label: 'Dashboard', icon: 'home' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
-    { path: '/faculty?tab=certificates', label: 'Certificates', icon: 'badge' },
+    { path: '/certificates', label: 'Certificates', icon: 'badge' },
     { path: '/faculty?tab=reports', label: 'Reports', icon: 'chart' },
   ],
   class_advisor: [
@@ -53,12 +55,14 @@ const NAV_ITEMS = {
     { path: '/ods/create', label: 'Register OD', icon: 'plus-circle' },
     { path: '/management?tab=Representatives', label: 'Class Representatives', icon: 'user-group' },
     { path: '/management?tab=Bulk+Import', label: 'Bulk Import', icon: 'upload' },
+    { path: '/certificates', label: 'Certificates', icon: 'badge' },
   ],
   class_representative: [
     { path: '/class-rep', label: 'Dashboard', icon: 'home' },
     { path: '/class-rep?tab=roster', label: 'My Class', icon: 'building' },
     { path: '/ods', label: 'On-Duty Records', icon: 'document' },
     { path: '/ods/create', label: 'Register OD', icon: 'plus-circle' },
+    { path: '/certificates', label: 'Certificates', icon: 'badge' },
   ],
   student_representative: [
     { path: '/student-rep', label: 'Dashboard', icon: 'home' },
@@ -67,7 +71,8 @@ const NAV_ITEMS = {
   student: [
     { path: '/student', label: 'Dashboard', icon: 'home' },
     { path: '/ods', label: 'My On-Duty Records', icon: 'document' },
-    { path: '/student?tab=certificates', label: 'My Certificates', icon: 'badge' },
+    { path: '/certificates', label: 'My Certificates', icon: 'badge' },
+    { path: '/certificates/upload', label: 'Upload Certificate', icon: 'upload' },
   ],
 };
 
