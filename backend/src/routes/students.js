@@ -10,6 +10,7 @@ import Certificate from '../models/Certificate.js';
 import AuditEvent from '../models/AuditEvent.js';
 import pool from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
+import StudentAcademicHistory from '../models/StudentAcademicHistory.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -190,6 +191,13 @@ router.post('/', verifyToken, requireManagementRole(...MANAGEMENT_ROLES), async 
             [student.register_number, student.student_id, await bcrypt.hash(date_of_birth, 12)]
         );
         await AuditEvent.record({ actorUserId: req.user.user_id, action: 'student_created', targetEntity: 'student', targetId: student.student_id, newData: student });
+        // Create initial academic history record
+        await pool.query(
+            `INSERT INTO student_academic_history (student_id, academic_year_id, class_id, status, notes)
+             VALUES ($1, $2, $3, 'active', 'Initial enrollment')
+             ON CONFLICT (student_id, academic_year_id) DO NOTHING`,
+            [student.student_id, student.academic_year_id, student.class_id]
+        );
         res.status(201).json(student);
     } catch (err) { next(err); }
 });
@@ -279,6 +287,8 @@ router.delete('/:studentId(\\d+)', verifyToken, requireManagementRole('super_adm
         await client.query('BEGIN');
         // Remove CR assignment if any
         await client.query('DELETE FROM class_representatives WHERE student_id = $1', [req.params.studentId]);
+        // Remove academic history records (ON DELETE RESTRICT requires explicit deletion)
+        await client.query('DELETE FROM student_academic_history WHERE student_id = $1', [req.params.studentId]);
         // Remove user account
         await client.query('DELETE FROM users WHERE student_id = $1', [req.params.studentId]);
         // Remove student
@@ -314,6 +324,32 @@ router.get('/:studentId(\\d+)', verifyToken, requireManagementRole(...MANAGEMENT
         res.json(student);
     } catch (err) { next(err); }
 });
+
+// ── GET /:studentId/academic-history ─────────────────────────────────────────
+router.get('/:studentId(\\d+)/academic-history',
+    verifyToken,
+    requireManagementRole(...MANAGEMENT_ROLES, 'class_representative'),
+    async (req, res, next) => {
+        try {
+            const student = (await pool.query(
+                'SELECT student_id, register_number, name, class_id FROM students WHERE student_id = $1',
+                [req.params.studentId]
+            )).rows[0];
+            if (!student) throw new AppError('Student not found', 'NOT_FOUND', 404);
+
+            if (req.user.role === 'class_advisor') {
+                await assertClassAccess(req, student.class_id);
+            }
+            if (req.user.role === 'class_representative') {
+                if (String(student.class_id) !== String(req.user.class_id))
+                    throw new AppError('You do not have access to this student', 'FORBIDDEN', 403);
+            }
+
+            const history = await StudentAcademicHistory.getByStudent(req.params.studentId);
+            return res.json({ student_id: Number(req.params.studentId), data: history });
+        } catch (err) { next(err); }
+    }
+);
 
 // ── bulk import ───────────────────────────────────────────────────────────────
 
@@ -428,6 +464,12 @@ router.post('/import/confirm', verifyToken, requireManagementRole(...MANAGEMENT_
                 `INSERT INTO users (username, role, student_id, password_hash) VALUES ($1, 'student', $2, $3)`,
                 [row.register_number, inserted.rows[0].student_id, await bcrypt.hash(row.date_of_birth, 12)]
             );
+            await client.query(
+                `INSERT INTO student_academic_history (student_id, academic_year_id, class_id, status, notes)
+                 VALUES ($1, $2, $3, 'active', 'Bulk import enrollment')
+                 ON CONFLICT (student_id, academic_year_id) DO NOTHING`,
+                [inserted.rows[0].student_id, validation.class.academic_year_id, validation.class.id]
+            );
         }
         await AuditEvent.record({ actorUserId: req.user.user_id, action: 'bulk_import', targetEntity: 'class', targetId: session.class_id, newData: validation.summary, client });
         // Clean up session
@@ -463,6 +505,12 @@ router.post('/import', verifyToken, requireManagementRole(...MANAGEMENT_ROLES), 
             await client.query(
                 `INSERT INTO users (username, role, student_id, password_hash) VALUES ($1, 'student', $2, $3)`,
                 [row.register_number, inserted.rows[0].student_id, await bcrypt.hash(row.date_of_birth, 12)]
+            );
+            await client.query(
+                `INSERT INTO student_academic_history (student_id, academic_year_id, class_id, status, notes)
+                 VALUES ($1, $2, $3, 'active', 'Bulk import enrollment')
+                 ON CONFLICT (student_id, academic_year_id) DO NOTHING`,
+                [inserted.rows[0].student_id, validation.class.academic_year_id, validation.class.id]
             );
         }
         await AuditEvent.record({ actorUserId: req.user.user_id, action: 'bulk_import', targetEntity: 'class', targetId: req.body.class_id, newData: validation.summary, client });

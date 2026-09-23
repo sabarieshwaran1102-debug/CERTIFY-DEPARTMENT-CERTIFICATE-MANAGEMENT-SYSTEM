@@ -16,6 +16,12 @@ const managementService = {
         (await apiClient.post(`/academic-years/${sourceYearId}/promote`, { target_academic_year_id, class_mappings, notes })).data,
     getPromotionHistory: async (yearId) => (await apiClient.get(`/academic-years/${yearId}/promotions`)).data,
 
+    // Student Academic History
+    getStudentAcademicHistory: async (studentId) =>
+        (await apiClient.get(`/students/${studentId}/academic-history`)).data,
+    getAcademicYearStudents: async (yearId) =>
+        (await apiClient.get(`/academic-years/${yearId}/students`)).data,
+
     // Classes
     getClasses: async (params = {}) => (await apiClient.get('/classes', { params })).data,
     createClass: async (data) => (await apiClient.post('/classes', data)).data,

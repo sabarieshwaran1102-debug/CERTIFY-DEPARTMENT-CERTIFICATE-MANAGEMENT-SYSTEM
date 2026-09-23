@@ -7,6 +7,7 @@ import AcademicYear from '../models/AcademicYear.js';
 import ClassModel from '../models/Class.js';
 import AuditEvent from '../models/AuditEvent.js';
 import { AppError } from '../middleware/errorHandler.js';
+import StudentAcademicHistory from '../models/StudentAcademicHistory.js';
 
 const router = express.Router();
 const management = [verifyToken, requireManagementRole('super_admin', 'admin')];
@@ -492,6 +493,23 @@ router.post('/academic-years/:id/promote', ...management, async (req, res, next)
 
             totalPromoted += updateResult.rows.length;
             classMappingRecord[String(mapping.from_class_id)] = String(mapping.to_class_id);
+
+            // Write academic history: exit old year, enroll in target year
+            for (const row of updateResult.rows) {
+                await StudentAcademicHistory.exit({
+                    studentId:      row.student_id,
+                    academicYearId: sourceAyId,
+                    exitStatus:     'promoted',
+                    notes:          `Promoted to ${toClass.display_name} (${targetAy.name})`,
+                }, client);
+                await StudentAcademicHistory.enroll({
+                    studentId:      row.student_id,
+                    academicYearId: target_academic_year_id,
+                    classId:        toClass.id,
+                    status:         'active',
+                    notes:          `Promoted from ${fromClass.display_name} (${sourceAy.name})`,
+                }, client);
+            }
         }
 
         // Record promotion history
@@ -551,6 +569,14 @@ router.get('/academic-years/:id/promotions', ...management, async (req, res, nex
             [req.params.id]
         );
         res.json({ data: result.rows });
+    } catch (err) { next(err); }
+});
+
+// ── Students enrolled in an academic year ────────────────────────────────────
+router.get('/academic-years/:id/students', ...management, async (req, res, next) => {
+    try {
+        const students = await StudentAcademicHistory.getByAcademicYear(req.params.id);
+        res.json({ data: students, total: students.length });
     } catch (err) { next(err); }
 });
 

@@ -79,6 +79,9 @@ const ManagementDashboard = () => {
     const [addOpen, setAddOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleteReason, setDeleteReason] = useState('');
+    const [historyStudent, setHistoryStudent] = useState(null);
+    const [historyData,    setHistoryData]    = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const loadStudents = useCallback(async (offset = 0) => {
         setStudLoading(true);
@@ -141,6 +144,21 @@ const ManagementDashboard = () => {
             setDeleteReason('');
             loadStudents(0);
         } catch (e) { notify(e?.response?.data?.error || 'Deletion blocked', true); setDeleteTarget(null); }
+    };
+
+    const openHistory = async (student) => {
+        setHistoryStudent(student);
+        setHistoryData([]);
+        setHistoryLoading(true);
+        try {
+            const result = await managementService.getStudentAcademicHistory(student.student_id);
+            setHistoryData(result.data || []);
+        } catch (ex) {
+            notify(ex?.response?.data?.error || 'Failed to load academic history', true);
+            setHistoryStudent(null);
+        } finally {
+            setHistoryLoading(false);
+        }
     };
 
     // ── Org Structure ─────────────────────────────────────────────────────────
@@ -466,6 +484,10 @@ const ManagementDashboard = () => {
                                                                 onClick={() => setEditStudent({ ...s, date_of_birth: s.date_of_birth?.slice(0, 10) || '' })}
                                                                 className="px-2.5 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors"
                                                             >Edit</button>
+                                                            <button
+                                                                onClick={() => openHistory(s)}
+                                                                className="px-2.5 py-1.5 text-xs font-medium text-violet-600 border border-violet-200 rounded-md hover:bg-violet-50 transition-colors"
+                                                            >History</button>
                                                             {s.status !== 'INACTIVE' && (
                                                                 <button
                                                                     onClick={() => setDeactivateTarget(s)}
@@ -591,6 +613,50 @@ const ManagementDashboard = () => {
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {/* Academic History Modal */}
+                        {historyStudent && (
+                            <Modal title={`Academic History — ${historyStudent.name}`} onClose={() => setHistoryStudent(null)}>
+                                {historyLoading ? (
+                                    <LoadingState message="Loading history…" />
+                                ) : historyData.length === 0 ? (
+                                    <EmptyState title="No history found" description="This student has no recorded academic history." />
+                                ) : (
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {historyData.map((h) => (
+                                            <div key={h.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+                                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                                                    h.status === 'active'      ? 'bg-green-500'  :
+                                                    h.status === 'promoted'    ? 'bg-blue-500'   :
+                                                    h.status === 'graduated'   ? 'bg-indigo-500' :
+                                                    h.status === 'transferred' ? 'bg-amber-500'  :
+                                                    'bg-gray-400'
+                                                }`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <p className="text-sm font-semibold text-gray-900">{h.academic_year_name}</p>
+                                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+                                                            h.status === 'active'      ? 'bg-green-50 text-green-700'   :
+                                                            h.status === 'promoted'    ? 'bg-blue-50 text-blue-700'     :
+                                                            h.status === 'graduated'   ? 'bg-indigo-50 text-indigo-700' :
+                                                            h.status === 'transferred' ? 'bg-amber-50 text-amber-700'   :
+                                                            'bg-gray-50 text-gray-600'
+                                                        }`}>{h.status}</span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-600 mt-0.5 font-medium">{h.class_name}</p>
+                                                    <p className="text-xs text-gray-400">{h.department_name} · {h.year_of_study} · Section {h.section}</p>
+                                                    {h.notes && <p className="text-xs text-gray-400 mt-1 italic">{h.notes}</p>}
+                                                    <p className="text-xs text-gray-300 mt-1">
+                                                        Enrolled {new Date(h.enrolled_at).toLocaleDateString()}
+                                                        {h.exited_at && ` · Exited ${new Date(h.exited_at).toLocaleDateString()}`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </Modal>
                         )}
                     </div>
                 )}
