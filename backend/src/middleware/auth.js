@@ -1,9 +1,16 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import pool from '../config/database.js';
 import { AppError } from './errorHandler.js';
 
-const jwtSecret = process.env.JWT_SECRET || 'development-secret-key';
+// JWT_SECRET is required. No fallback — a missing secret must fail loudly.
+// Production startup in app.js separately validates the secret length.
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+    throw new Error(
+        'JWT_SECRET environment variable is not set. ' +
+        'Set it to a random string of at least 32 characters before starting the server.'
+    );
+}
 
 export const verifyToken = async (req, res, next) => {
     try {
@@ -12,7 +19,8 @@ export const verifyToken = async (req, res, next) => {
             return next(new AppError('Missing or invalid authorization token', 'UNAUTHORIZED', 401));
         }
         const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, jwtSecret);
+        // Pin to HS256 — prevents "alg: none" and algorithm confusion attacks.
+        const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
         const user = await User.getById(decoded.user_id);
         if (!user || !user.is_active) {
             return next(new AppError('User account is inactive or unavailable', 'UNAUTHORIZED', 401));

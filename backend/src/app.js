@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth.js';
@@ -53,6 +55,31 @@ app.use(cors({
     credentials: true,
 }));
 
+// ── Security headers ──────────────────────────────────────────────────────────
+app.use(helmet());
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Strict limiter for login endpoint — prevents brute-force attacks.
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,                   // 10 attempts per IP per window
+    standardHeaders: true,     // Return RateLimit-* headers
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+    skip: () => !isProduction && process.env.DISABLE_RATE_LIMIT === 'true',
+});
+
+// Broad API limiter — prevents scraping/abuse. 300 req / 15 min is generous
+// enough to not affect normal application usage.
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please slow down.' },
+    skip: () => !isProduction && process.env.DISABLE_RATE_LIMIT === 'true',
+});
+
 if (isProduction) {
     app.set('trust proxy', 1);
     app.use((req, res, next) => {
@@ -64,9 +91,14 @@ if (isProduction) {
     });
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
+// Apply the broad rate limiter to all /api routes.
+app.use('/api', apiLimiter);
+
+// Apply the strict login limiter BEFORE the auth router.
+app.post('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/od-records', odRecordsRoutes);

@@ -14,6 +14,19 @@ const STORAGE_BASE = getStoragePath();
 
 const router = express.Router();
 
+/**
+ * Assert that filePath resolves within the configured storage root.
+ * Prevents path traversal attacks when serving DB-stored file paths.
+ */
+function assertWithinStorageRoot(filePath) {
+    const storageRoot = path.resolve(STORAGE_BASE);
+    const resolved    = path.resolve(filePath);
+    if (!resolved.startsWith(storageRoot + path.sep) && resolved !== storageRoot) {
+        throw new AppError('Certificate path is outside the permitted storage directory', 'FORBIDDEN', 403);
+    }
+    return resolved;
+}
+
 // File upload middleware
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -159,15 +172,18 @@ router.get('/:certId/download', verifyToken, async (req, res, next) => {
             throw new AppError('Insufficient permissions', 'FORBIDDEN', 403);
         }
 
+        // Validate path is within storage root (prevents path traversal)
+        const safeFilePath = assertWithinStorageRoot(certificate.file_path);
+
         // Verify file exists
         try {
-            await access(certificate.file_path);
+            await access(safeFilePath);
         } catch (err) {
             throw new AppError('Certificate file not found on server', 'NOT_FOUND', 404);
         }
 
         // Stream file download
-        res.download(certificate.file_path, certificate.file_name);
+        res.download(safeFilePath, certificate.file_name);
     } catch (err) {
         next(err);
     }

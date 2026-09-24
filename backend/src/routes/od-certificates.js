@@ -26,7 +26,7 @@ import OdCertificate, { computeDeadline, isLateSubmission } from '../models/OdCe
 import OD from '../models/OD.js';
 import pool from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { getCertificateSubdirectory, ensureStorageDirectory } from '../config/storage.js';
+import { getCertificateSubdirectory, ensureStorageDirectory, getStoragePath as getCertificateStorageRoot } from '../config/storage.js';
 import * as emailService from '../services/emailService.js';
 
 const router = express.Router();
@@ -154,6 +154,22 @@ async function loadStudentContact(studentId) {
     // Use username as email if it looks like an email, otherwise null
     const email = row.username && row.username.includes('@') ? row.username : null;
     return { studentEmail: email, studentName: row.name || 'Student' };
+}
+
+/**
+ * Assert that resolvedFilePath is inside the configured certificate storage root.
+ * Prevents path traversal attacks when serving DB-stored file paths.
+ * @param {string} filePath  raw path from the database
+ * @returns {string}         the resolved absolute path (safe to use)
+ * @throws {AppError}        403 if path is outside the storage root
+ */
+function assertWithinStorageRoot(filePath) {
+    const storageRoot = path.resolve(getCertificateStorageRoot());
+    const resolved    = path.resolve(filePath);
+    if (!resolved.startsWith(storageRoot + path.sep) && resolved !== storageRoot) {
+        throw new AppError('Certificate path is outside the permitted storage directory', 'FORBIDDEN', 403);
+    }
+    return resolved;
 }
 
 // ── POST /api/od-certificates  (submit or replace) ────────────────────────────
@@ -384,11 +400,14 @@ router.get('/:id(\\d+)/download', verifyToken, async (req, res, next) => {
             if (!check.rows[0]) throw new AppError('Certificate is not in your assigned class', 'FORBIDDEN', 403);
         }
 
+        // Validate path is within storage root (prevents path traversal)
+        const safeFilePath = assertWithinStorageRoot(cert.file_path);
+
         // Verify file exists
-        try { await access(cert.file_path); }
+        try { await access(safeFilePath); }
         catch { throw new AppError('Certificate file not found on server', 'NOT_FOUND', 404); }
 
-        return res.download(cert.file_path, cert.file_name);
+        return res.download(safeFilePath, cert.file_name);
     } catch (err) { return next(err); }
 });
 
