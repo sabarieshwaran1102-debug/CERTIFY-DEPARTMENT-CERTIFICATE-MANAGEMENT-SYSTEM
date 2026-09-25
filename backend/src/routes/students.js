@@ -417,6 +417,8 @@ router.post('/import/preview', verifyToken, requireManagementRole(...MANAGEMENT_
     try {
         if (!req.body.class_id) throw new AppError('class_id is required before uploading', 'VALIDATION_ERROR', 400);
         await assertClassAccess(req, req.body.class_id);
+        // Lazily purge expired sessions to prevent unbounded table growth.
+        await pool.query('DELETE FROM import_sessions WHERE expires_at < NOW()').catch(() => {});
         const rows = await parseImportRows(req.file);
         const validation = await validateImportRows(rows, req.body.class_id);
         // Store validated preview server-side

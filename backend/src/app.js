@@ -14,6 +14,7 @@ import organizationRoutes from './routes/organization.js';
 import odRoutes from './routes/ods.js';
 import odCertificatesRoutes from './routes/od-certificates.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import pool from './config/database.js';
 
 dotenv.config();
 
@@ -109,8 +110,13 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', organizationRoutes);
 
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'OK', timestamp: new Date().toISOString(), db: 'connected' });
+    } catch (err) {
+        res.status(503).json({ status: 'DEGRADED', timestamp: new Date().toISOString(), db: 'disconnected', error: err.message });
+    }
 });
 
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

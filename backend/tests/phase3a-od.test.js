@@ -335,12 +335,21 @@ describe("OD authorization", () => {
             "INSERT INTO class_representatives (class_id,student_id,assigned_by) SELECT $1,$2,$3 WHERE NOT EXISTS (SELECT 1 FROM class_representatives WHERE class_id=$1 AND student_id=$2)",
             [testClassId, classStudent.student_id, adminUserId]
         );
-        const cr = await pool.query(
-            "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
-            [classStudent.register_number, "class_representative", classStudent.student_id,
-             await bcrypt.hash("2003-08-01", 12), testClassId]
-        );
-        crUserId  = cr.rows[0].user_id;
+        // POST /api/students auto-creates a student-role user with same username.
+        // Delete it before inserting the class_representative user to avoid username collision.
+        await pool.query("DELETE FROM users WHERE student_id=$1 AND role='student'",[classStudent.student_id]);
+        const existingCRUser = await pool.query(
+            "SELECT user_id FROM users WHERE student_id=$1 AND role='class_representative'",[classStudent.student_id]);
+        if (existingCRUser.rows[0]) {
+            crUserId = existingCRUser.rows[0].user_id;
+        } else {
+            const cr = await pool.query(
+                "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
+                [classStudent.register_number, "class_representative", classStudent.student_id,
+                 await bcrypt.hash("2003-08-01", 12), testClassId]
+            );
+            crUserId  = cr.rows[0].user_id;
+        }
         crToken   = (await login(classStudent.register_number, "2003-08-01", "class_representative")).token;
     }, 20000);
 
@@ -552,12 +561,20 @@ describe("OD cancellation", () => {
             "INSERT INTO class_representatives (class_id,student_id,assigned_by) SELECT $1,$2,$3 WHERE NOT EXISTS (SELECT 1 FROM class_representatives WHERE class_id=$1 AND student_id=$2)",
             [testClassId, crStudent.student_id, adminUserId]
         );
-        const cr = await pool.query(
-            "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
-            [crStudent.register_number, "class_representative", crStudent.student_id,
-             await bcrypt.hash("2003-12-03", 12), testClassId]
-        );
-        crUserId = cr.rows[0].user_id;
+        // POST /api/students auto-creates a student-role user — delete it before creating the CR user.
+        await pool.query("DELETE FROM users WHERE student_id=$1 AND role='student'",[crStudent.student_id]);
+        const existingCRUser2 = await pool.query(
+            "SELECT user_id FROM users WHERE student_id=$1 AND role='class_representative'",[crStudent.student_id]);
+        if (existingCRUser2.rows[0]) {
+            crUserId = existingCRUser2.rows[0].user_id;
+        } else {
+            const cr = await pool.query(
+                "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
+                [crStudent.register_number, "class_representative", crStudent.student_id,
+                 await bcrypt.hash("2003-12-03", 12), testClassId]
+            );
+            crUserId = cr.rows[0].user_id;
+        }
         crToken  = (await login(crStudent.register_number, "2003-12-03", "class_representative")).token;
     }, 30000);
 

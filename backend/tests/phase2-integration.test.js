@@ -270,12 +270,17 @@ describe("Class Representative authorization", () => {
             [testClassId, crStudent.student_id, adminUserId]
         );
 
-        const existing = await pool.query("SELECT user_id FROM users WHERE student_id=$1 AND role=$2",
-            [crStudent.student_id,"class_representative"]);
-        if (existing.rows[0]) {
-            crUserId = existing.rows[0].user_id;
+        // mkStudent (POST /api/students) auto-creates a student-role user with the same username.
+        // We need a class_representative user with that username — remove the student one first.
+        const existingCR = await pool.query(
+            "SELECT user_id FROM users WHERE student_id=$1 AND role='class_representative'",
+            [crStudent.student_id]);
+        if (existingCR.rows[0]) {
+            crUserId = existingCR.rows[0].user_id;
             await pool.query("UPDATE users SET is_active=TRUE, class_id=$1 WHERE user_id=$2",[testClassId,crUserId]);
         } else {
+            // Delete the auto-created student user so we can reuse the same username for the CR account
+            await pool.query("DELETE FROM users WHERE student_id=$1 AND role='student'",[crStudent.student_id]);
             const cr = await pool.query(
                 "INSERT INTO users (username,role,student_id,password_hash,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING user_id",
                 [crStudent.register_number,"class_representative",crStudent.student_id,
