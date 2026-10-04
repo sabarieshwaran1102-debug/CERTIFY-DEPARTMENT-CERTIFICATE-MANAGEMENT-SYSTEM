@@ -8,9 +8,7 @@ export const certService = {
             formData.append('registration_number', registrationNumber);
             formData.append('file', file);
             
-            const response = await apiClient.post('/certificates', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const response = await apiClient.post('/certificates', formData);
             return response.data;
         } catch (error) {
             throw error.response?.data || { error: 'Failed to submit certificate' };

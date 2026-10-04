@@ -400,8 +400,15 @@ router.get('/:id(\\d+)/download', verifyToken, async (req, res, next) => {
             if (!check.rows[0]) throw new AppError('Certificate is not in your assigned class', 'FORBIDDEN', 403);
         }
 
+        // Fetch file_path separately — it is intentionally excluded from CERT_SELECT
+        // to avoid exposing server filesystem paths in the public API.
+        const fileRow = (await pool.query(
+            'SELECT file_path FROM od_certificates WHERE id = $1', [req.params.id]
+        )).rows[0];
+        if (!fileRow?.file_path) throw new AppError('Certificate file record is incomplete', 'NOT_FOUND', 404);
+
         // Validate path is within storage root (prevents path traversal)
-        const safeFilePath = assertWithinStorageRoot(cert.file_path);
+        const safeFilePath = assertWithinStorageRoot(fileRow.file_path);
 
         // Verify file exists
         try { await access(safeFilePath); }

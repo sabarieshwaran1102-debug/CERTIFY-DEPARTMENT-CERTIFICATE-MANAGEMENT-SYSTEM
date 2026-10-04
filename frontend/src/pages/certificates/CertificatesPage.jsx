@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import odCertService from '../../services/odCertService';
 import Badge from '../../components/ui/Badge';
@@ -11,7 +11,11 @@ const STAFF_ROLES = ['super_admin', 'admin', 'coordinating_faculty', 'class_advi
 export default function CertificatesPage() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const isStaff = STAFF_ROLES.includes(user?.role);
+
+  // When navigated to /certificates/pending, pre-filter to pending review items
+  const isPendingRoute = location.pathname === '/certificates/pending';
 
   const [certs, setCerts] = useState([]);
   const [pagination, setPagination] = useState({ total: 0, limit: 25, offset: 0 });
@@ -19,7 +23,7 @@ export default function CertificatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(isPendingRoute ? 'late_submitted' : '');
 
   const load = useCallback(async (pg = 1) => {
     setLoading(true);
@@ -28,7 +32,10 @@ export default function CertificatesPage() {
       const limit = 25;
       const params = { limit, offset: (pg - 1) * limit };
       if (statusFilter) params.status = statusFilter;
-      const result = await odCertService.getAll(params);
+      // On the /certificates/pending route, use the pending endpoint
+      const result = isPendingRoute
+        ? await odCertService.getPending({ include_late: 'true', ...params })
+        : await odCertService.getAll(params);
       setCerts(result.data || []);
       setPagination(result.pagination || { total: 0, limit, offset: 0 });
     } catch (e) {
@@ -36,7 +43,7 @@ export default function CertificatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, isPendingRoute]);
 
   useEffect(() => { load(page); }, [page, load]);
 
@@ -67,7 +74,7 @@ export default function CertificatesPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <PageHeader
-        title={user?.role === 'student' ? 'My Certificates' : 'Certificate Management'}
+        title={user?.role === 'student' ? 'My Certificates' : isPendingRoute ? 'Pending Review' : 'Certificate Management'}
         subtitle={user?.role === 'student' ? 'Track and manage your OD certificates' : `${pagination.total} certificate records`}
         action={isStaff && (
           <Btn variant="secondary" onClick={() => load(1)}>

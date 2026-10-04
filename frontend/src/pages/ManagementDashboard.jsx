@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useCallback } from 'react';
+﻿import { useContext, useEffect, useState, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import managementService from '../services/managementService';
 import userService from '../services/userService';
@@ -9,7 +9,7 @@ import {
     Modal, ConfirmModal
 } from '../components/ui/index';
 
-// ── Tab bar ───────────────────────────────────────────────────────────────────
+// â”€â”€ Tab bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const Tabs = ({ tabs, active, onChange }) => (
     <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map((t) => (
@@ -26,7 +26,7 @@ const Tabs = ({ tabs, active, onChange }) => (
     </div>
 );
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ManagementDashboard = () => {
     const { user } = useContext(AuthContext);
     const isAdmin = ['admin', 'super_admin'].includes(user?.role);
@@ -43,7 +43,7 @@ const ManagementDashboard = () => {
         if (isErr) { setErr(m); setMsg(''); } else { setMsg(m); setErr(''); }
     };
 
-    // ── shared org state ──────────────────────────────────────────────────────
+    // â”€â”€ shared org state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [departments, setDepartments] = useState([]);
     const [academicYears, setAcademicYears] = useState([]);
     const [classes, setClasses] = useState([]);
@@ -67,7 +67,7 @@ const ManagementDashboard = () => {
 
     useEffect(() => { loadOrg(); }, [loadOrg]);
 
-    // ── Students ──────────────────────────────────────────────────────────────
+    // â”€â”€ Students â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [students, setStudents] = useState([]);
     const [studLoading, setStudLoading] = useState(false);
     const [pagination, setPagination] = useState({ total: 0, limit: 25, offset: 0 });
@@ -161,12 +161,48 @@ const ManagementDashboard = () => {
         }
     };
 
-    // ── Org Structure ─────────────────────────────────────────────────────────
+    // â”€â”€ Org Structure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [deptForm, setDeptForm] = useState({ name: '', code: '' });
     const [yearForm, setYearForm] = useState({ name: '', start_date: '', end_date: '' });
     const [classForm, setClassForm] = useState({ department_id: '', academic_year_id: '', year_of_study: '', section: '', display_name: '' });
 
-    // ── Academic Year Lifecycle ───────────────────────────────────────────────
+    // Edit Department state
+    const [editDept, setEditDept] = useState(null);
+    const [editDeptLoading, setEditDeptLoading] = useState(false);
+
+    const saveDept = async (e) => {
+        e.preventDefault();
+        setEditDeptLoading(true);
+        try {
+            await managementService.updateDepartment(editDept.id, { name: editDept.name.trim(), code: editDept.code.trim().toUpperCase() });
+            notify('Department updated.');
+            setEditDept(null);
+            loadOrg();
+        } catch (ex) { notify(ex?.response?.data?.error || 'Failed to update department', true); }
+        finally { setEditDeptLoading(false); }
+    };
+
+    // Edit Class state
+    const [editClass, setEditClass] = useState(null);
+    const [editClassLoading, setEditClassLoading] = useState(false);
+
+    const saveClass = async (e) => {
+        e.preventDefault();
+        setEditClassLoading(true);
+        try {
+            await managementService.updateClass(editClass.id, {
+                display_name: editClass.display_name.trim(),
+                year_of_study: editClass.year_of_study.trim(),
+                section: editClass.section.trim(),
+            });
+            notify('Class updated.');
+            setEditClass(null);
+            loadOrg();
+        } catch (ex) { notify(ex?.response?.data?.error || 'Failed to update class', true); }
+        finally { setEditClassLoading(false); }
+    };
+
+    // â”€â”€ Academic Year Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [promoteSource, setPromoteSource] = useState(null); // academic year object being promoted
     const [promoteTargetId, setPromoteTargetId] = useState('');
     const [classMappings, setClassMappings] = useState([{ from_class_id: '', to_class_id: '' }]);
@@ -212,7 +248,7 @@ const ManagementDashboard = () => {
                 class_mappings: validMappings,
                 notes: promoteNotes || undefined,
             });
-            notify(`Promotion complete — ${result.promoted ?? result.data?.promoted ?? 0} student(s) promoted.`);
+            notify(`Promotion complete â€” ${result.promoted ?? result.data?.promoted ?? 0} student(s) promoted.`);
             setPromoteSource(null);
             loadOrg();
         } catch (ex) { notify(ex?.response?.data?.error || 'Promotion failed', true); }
@@ -235,7 +271,7 @@ const ManagementDashboard = () => {
         catch (ex) { notify(ex?.response?.data?.error || 'Failed', true); }
     };
 
-    // ── Advisors ──────────────────────────────────────────────────────────────
+    // â”€â”€ Advisors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [advisorClassSel, setAdvisorClassSel] = useState('');
     const [advisorUserSel, setAdvisorUserSel] = useState('');
     const [advisorReason, setAdvisorReason] = useState('');
@@ -267,7 +303,7 @@ const ManagementDashboard = () => {
         finally { setAdvisorHistLoading(false); }
     };
 
-    // ── Representatives ───────────────────────────────────────────────────────
+    // â”€â”€ Representatives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [crClassSel, setCrClassSel] = useState('');
     const [crStudents, setCrStudents] = useState([]);
     const [crList, setCrList] = useState([]);
@@ -314,7 +350,7 @@ const ManagementDashboard = () => {
         } catch (ex) { notify(ex?.response?.data?.error || 'Failed', true); }
     };
 
-    // ── Bulk Import ───────────────────────────────────────────────────────────
+    // â”€â”€ Bulk Import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [importClass, setImportClass] = useState('');
     const [importFile, setImportFile] = useState(null);
     const [importPreview, setImportPreview] = useState(null);
@@ -344,7 +380,7 @@ const ManagementDashboard = () => {
         finally { setImportLoading(false); }
     };
 
-    // ── Audit ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const [auditLog, setAuditLog] = useState([]);
     const [auditLoading, setAuditLoading] = useState(false);
     const [auditSearch, setAuditSearch] = useState('');
@@ -389,12 +425,12 @@ const ManagementDashboard = () => {
         CERTIFICATE_REJECTED: 'bg-red-50 text-red-600',
     };
 
-    // ── render ────────────────────────────────────────────────────────────────
+    // â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return (
         <div className="flex-1 overflow-y-auto">
             <PageHeader
                 title={isAdmin ? 'Administration' : 'My Class'}
-                subtitle={`${user?.username} · ${user?.role}`}
+                subtitle={`${user?.username} Â· ${user?.role}`}
             />
 
             <div className="p-6">
@@ -403,9 +439,9 @@ const ManagementDashboard = () => {
 
                 <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     STUDENTS TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Students' && (
                     <div className="space-y-5">
                         {/* Toolbar */}
@@ -414,7 +450,7 @@ const ManagementDashboard = () => {
                                 <SearchInput
                                     value={search}
                                     onChange={setSearch}
-                                    placeholder="Search name or register…"
+                                    placeholder="Search name or registerâ€¦"
                                     className="min-w-[200px]"
                                 />
                                 <select
@@ -447,7 +483,7 @@ const ManagementDashboard = () => {
 
                         {/* Table */}
                         {studLoading ? (
-                            <LoadingState message="Loading students…" />
+                            <LoadingState message="Loading studentsâ€¦" />
                         ) : (
                             <SectionCard>
                                 <div className="overflow-x-auto">
@@ -474,7 +510,7 @@ const ManagementDashboard = () => {
                                                 <tr key={s.student_id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="px-4 py-3 text-sm font-mono text-indigo-600 font-medium">{s.register_number}</td>
                                                     <td className="px-4 py-3 text-sm text-gray-900 font-medium">{s.name}</td>
-                                                    <td className="px-4 py-3 text-sm text-gray-500">{s.display_name || '—'}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500">{s.display_name || 'â€”'}</td>
                                                     <td className="px-4 py-3">
                                                         <Badge variant={(s.status || '').toLowerCase()} label={s.status} />
                                                     </td>
@@ -531,8 +567,8 @@ const ManagementDashboard = () => {
                                     </Field>
                                     <Field label="Class" required>
                                         <Select value={newStudent.class_id} onChange={(e) => setNewStudent({ ...newStudent, class_id: e.target.value })} required>
-                                            <option value="">Select class…</option>
-                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name} · {c.academic_year_name}</option>)}
+                                            <option value="">Select classâ€¦</option>
+                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name} Â· {c.academic_year_name}</option>)}
                                         </Select>
                                     </Field>
                                     <div className="flex gap-3 justify-end pt-2">
@@ -604,7 +640,7 @@ const ManagementDashboard = () => {
                                             </div>
                                         </div>
                                         <Field label="Reason (optional)">
-                                            <Input value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="Reason for deletion…" />
+                                            <Input value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="Reason for deletionâ€¦" />
                                         </Field>
                                         <div className="flex gap-3">
                                             <button onClick={() => { setDeleteTarget(null); setDeleteReason(''); }} className="flex-1 py-2.5 text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
@@ -617,9 +653,9 @@ const ManagementDashboard = () => {
 
                         {/* Academic History Modal */}
                         {historyStudent && (
-                            <Modal title={`Academic History — ${historyStudent.name}`} onClose={() => setHistoryStudent(null)}>
+                            <Modal title={`Academic History â€” ${historyStudent.name}`} onClose={() => setHistoryStudent(null)}>
                                 {historyLoading ? (
-                                    <LoadingState message="Loading history…" />
+                                    <LoadingState message="Loading historyâ€¦" />
                                 ) : historyData.length === 0 ? (
                                     <EmptyState title="No history found" description="This student has no recorded academic history." />
                                 ) : (
@@ -645,11 +681,11 @@ const ManagementDashboard = () => {
                                                         }`}>{h.status}</span>
                                                     </div>
                                                     <p className="text-xs text-gray-600 mt-0.5 font-medium">{h.class_name}</p>
-                                                    <p className="text-xs text-gray-400">{h.department_name} · {h.year_of_study} · Section {h.section}</p>
+                                                    <p className="text-xs text-gray-400">{h.department_name} Â· {h.year_of_study} Â· Section {h.section}</p>
                                                     {h.notes && <p className="text-xs text-gray-400 mt-1 italic">{h.notes}</p>}
                                                     <p className="text-xs text-gray-300 mt-1">
                                                         Enrolled {new Date(h.enrolled_at).toLocaleDateString()}
-                                                        {h.exited_at && ` · Exited ${new Date(h.exited_at).toLocaleDateString()}`}
+                                                        {h.exited_at && ` Â· Exited ${new Date(h.exited_at).toLocaleDateString()}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -661,9 +697,9 @@ const ManagementDashboard = () => {
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     ORG STRUCTURE TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Org Structure' && isAdmin && (
                     <div className="grid md:grid-cols-3 gap-5">
                         {/* Departments */}
@@ -679,12 +715,18 @@ const ManagementDashboard = () => {
                                 <div className="border-t border-gray-100 pt-3 space-y-1 max-h-48 overflow-y-auto">
                                     {orgLoading ? <LoadingState message="" /> : departments.length === 0 ? (
                                         <p className="text-sm text-gray-400 text-center py-4">No departments yet.</p>
-                                    ) : departments.map((d) => (
-                                        <div key={d.id} className="flex items-center justify-between py-2 px-1">
-                                            <span className="text-sm text-gray-900">{d.name}</span>
-                                            <span className="text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{d.code}</span>
-                                        </div>
-                                    ))}
+                                     ) : departments.map((d) => (
+                                         <div key={d.id} className="flex items-center justify-between py-2 px-1 group">
+                                             <div className="flex-1 min-w-0">
+                                                 <span className="text-sm text-gray-900">{d.name}</span>
+                                                 <span className="ml-2 text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{d.code}</span>
+                                             </div>
+                                             <button
+                                                 onClick={() => setEditDept({ id: d.id, name: d.name, code: d.code })}
+                                                 className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-medium text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-50 transition-all"
+                                             >Edit</button>
+                                         </div>
+                                     ))}
                                 </div>
                             </div>
                         </SectionCard>
@@ -743,13 +785,13 @@ const ManagementDashboard = () => {
                                 <form onSubmit={submitClass} className="space-y-3">
                                     <Field label="Department" required>
                                         <Select value={classForm.department_id} onChange={(e) => setClassForm({ ...classForm, department_id: e.target.value })} required>
-                                            <option value="">Select…</option>
+                                            <option value="">Selectâ€¦</option>
                                             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </Select>
                                     </Field>
                                     <Field label="Academic Year" required>
                                         <Select value={classForm.academic_year_id} onChange={(e) => setClassForm({ ...classForm, academic_year_id: e.target.value })} required>
-                                            <option value="">Select…</option>
+                                            <option value="">Selectâ€¦</option>
                                             {academicYears.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
                                         </Select>
                                     </Field>
@@ -760,22 +802,28 @@ const ManagementDashboard = () => {
                                 </form>
                                 <div className="border-t border-gray-100 pt-3 space-y-1 max-h-48 overflow-y-auto">
                                     {orgLoading ? <LoadingState message="" /> : classes.length === 0 ? (
-                                        <p className="text-sm text-gray-400 text-center py-4">No classes yet.</p>
-                                    ) : classes.map((c) => (
-                                        <div key={c.id} className="py-2 px-1">
-                                            <p className="text-sm font-medium text-gray-900">{c.display_name}</p>
-                                            <p className="text-xs text-gray-400">{c.department_name} · {c.academic_year_name}</p>
-                                        </div>
-                                    ))}
+                                         <p className="text-sm text-gray-400 text-center py-4">No classes yet.</p>
+                                     ) : classes.map((c) => (
+                                         <div key={c.id} className="py-2 px-1 group flex items-start justify-between gap-2">
+                                             <div className="flex-1 min-w-0">
+                                                 <p className="text-sm font-medium text-gray-900">{c.display_name}</p>
+                                                 <p className="text-xs text-gray-400">{c.department_name} Â· {c.academic_year_name}</p>
+                                             </div>
+                                             <button
+                                                 onClick={() => setEditClass({ id: c.id, display_name: c.display_name, year_of_study: c.year_of_study, section: c.section, department_id: c.department_id, academic_year_id: c.academic_year_id })}
+                                                 className="flex-shrink-0 opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-medium text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-50 transition-all mt-0.5"
+                                             >Edit</button>
+                                         </div>
+                                     ))}
                                 </div>
                             </div>
                         </SectionCard>
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     ADVISORS TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Advisors' && isAdmin && (
                     <div className="space-y-5">
                         <SectionCard title="Assign / Replace Class Advisor">
@@ -783,13 +831,13 @@ const ManagementDashboard = () => {
                                 <form onSubmit={assignAdvisor} className="grid md:grid-cols-4 gap-4">
                                     <Field label="Class" required>
                                         <Select value={advisorClassSel} onChange={(e) => setAdvisorClassSel(e.target.value)} required>
-                                            <option value="">Select class…</option>
+                                            <option value="">Select classâ€¦</option>
                                             {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
                                         </Select>
                                     </Field>
                                     <Field label="Faculty" required>
                                         <Select value={advisorUserSel} onChange={(e) => setAdvisorUserSel(e.target.value)} required>
-                                            <option value="">Select faculty…</option>
+                                            <option value="">Select facultyâ€¦</option>
                                             {allFaculty.map((f) => <option key={f.user_id} value={f.user_id}>{f.username} ({f.role})</option>)}
                                         </Select>
                                     </Field>
@@ -804,15 +852,15 @@ const ManagementDashboard = () => {
                         <SectionCard title="Advisor History" action={
                             <div className="flex items-center gap-2">
                                 <Select value={advisorClassSel} onChange={(e) => setAdvisorClassSel(e.target.value)} className="!w-auto">
-                                    <option value="">Select class…</option>
+                                    <option value="">Select classâ€¦</option>
                                     {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
                                 </Select>
                                 <Btn size="sm" variant="secondary" onClick={loadAdvisorHistory} disabled={!advisorClassSel || advisorHistLoading}>
-                                    {advisorHistLoading ? 'Loading…' : 'Load'}
+                                    {advisorHistLoading ? 'Loadingâ€¦' : 'Load'}
                                 </Btn>
                             </div>
                         }>
-                            {advisorHistLoading ? <LoadingState message="Loading history…" /> : advisorHistory.length === 0 ? (
+                            {advisorHistLoading ? <LoadingState message="Loading historyâ€¦" /> : advisorHistory.length === 0 ? (
                                 <EmptyState title="No history loaded" description="Select a class and click Load." />
                             ) : (
                                 <div className="divide-y divide-gray-100">
@@ -827,8 +875,8 @@ const ManagementDashboard = () => {
                                                 </p>
                                                 <p className="text-xs text-gray-400">
                                                     Assigned {new Date(h.assigned_at).toLocaleDateString()}
-                                                    {h.unassigned_at && ` · Removed ${new Date(h.unassigned_at).toLocaleDateString()}`}
-                                                    {h.reason && ` · ${h.reason}`}
+                                                    {h.unassigned_at && ` Â· Removed ${new Date(h.unassigned_at).toLocaleDateString()}`}
+                                                    {h.reason && ` Â· ${h.reason}`}
                                                 </p>
                                             </div>
                                         </div>
@@ -839,27 +887,27 @@ const ManagementDashboard = () => {
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     REPRESENTATIVES TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Representatives' && (
                     <div className="space-y-5">
                         <div className="flex items-center gap-3">
                             <Select value={crClassSel} onChange={(e) => setCrClassSel(e.target.value)} className="!w-auto min-w-[200px]">
-                                <option value="">Select class…</option>
+                                <option value="">Select classâ€¦</option>
                                 {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)}
                             </Select>
                         </div>
 
                         {crClassSel ? (
-                            crLoading ? <LoadingState message="Loading class data…" /> : (
+                            crLoading ? <LoadingState message="Loading class dataâ€¦" /> : (
                                 <div className="grid md:grid-cols-2 gap-5">
                                     {/* Assign CR */}
                                     <SectionCard title="Assign Class Representative">
                                         <div className="p-5 space-y-4">
                                             <Field label="Active student">
                                                 <Select value={crStudentSel} onChange={(e) => setCrStudentSel(e.target.value)}>
-                                                    <option value="">Select student…</option>
+                                                    <option value="">Select studentâ€¦</option>
                                                     {crStudents
                                                         .filter((s) => !crList.some((cr) => cr.student_id === s.student_id))
                                                         .map((s) => <option key={s.student_id} value={s.student_id}>{s.name} ({s.register_number})</option>)
@@ -905,9 +953,9 @@ const ManagementDashboard = () => {
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     BULK IMPORT TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Bulk Import' && (
                     <div className="max-w-2xl space-y-5">
                         <SectionCard title="Bulk Student Import">
@@ -924,8 +972,8 @@ const ManagementDashboard = () => {
                                 <div className="grid md:grid-cols-2 gap-4">
                                     <Field label="Target Class" required>
                                         <Select value={importClass} onChange={(e) => { setImportClass(e.target.value); setImportPreview(null); setImportSession(null); }} required>
-                                            <option value="">Select class…</option>
-                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name} · {c.academic_year_name}</option>)}
+                                            <option value="">Select classâ€¦</option>
+                                            {classes.map((c) => <option key={c.id} value={c.id}>{c.display_name} Â· {c.academic_year_name}</option>)}
                                         </Select>
                                     </Field>
                                     <Field label="File (.xlsx or .csv)" required>
@@ -944,7 +992,7 @@ const ManagementDashboard = () => {
                                     className="w-full justify-center"
                                 >
                                     {importLoading && !importPreview ? (
-                                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg> Processing…</>
+                                        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg> Processingâ€¦</>
                                     ) : 'Preview Import'}
                                 </Btn>
                             </div>
@@ -982,18 +1030,18 @@ const ManagementDashboard = () => {
                                         ))}
                                         {importPreview.rows.filter((r) => !r.errors.length).slice(0, 5).map((r) => (
                                             <p key={r.row_number} className="text-xs text-green-600">
-                                                <span className="font-mono">✓ Row {r.row_number}:</span> {r.name} ({r.register_number})
+                                                <span className="font-mono">âœ“ Row {r.row_number}:</span> {r.name} ({r.register_number})
                                             </p>
                                         ))}
                                         {importPreview.rows.filter((r) => !r.errors.length).length > 5 && (
-                                            <p className="text-xs text-gray-400">…and {importPreview.rows.filter((r) => !r.errors.length).length - 5} more valid rows</p>
+                                            <p className="text-xs text-gray-400">â€¦and {importPreview.rows.filter((r) => !r.errors.length).length - 5} more valid rows</p>
                                         )}
                                     </div>
 
                                     {importPreview.summary.valid === importPreview.summary.total && importPreview.summary.valid > 0 ? (
                                         <Btn onClick={runConfirm} disabled={importLoading} className="w-full justify-center">
                                             {importLoading ? (
-                                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg> Importing…</>
+                                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="animate-spin"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg> Importingâ€¦</>
                                             ) : `Confirm Import (${importPreview.summary.valid} students)`}
                                         </Btn>
                                     ) : (
@@ -1007,16 +1055,16 @@ const ManagementDashboard = () => {
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
+                {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                     AUDIT TAB
-                ═══════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
                 {activeTab === 'Audit' && isSuperAdmin && (
                     <div className="space-y-5">
                         <div className="flex flex-wrap gap-3 items-center">
                             <SearchInput
                                 value={auditSearch}
                                 onChange={setAuditSearch}
-                                placeholder="Filter by actor, action, entity…"
+                                placeholder="Filter by actor, action, entityâ€¦"
                                 className="min-w-[240px]"
                             />
                             <Btn variant="secondary" size="sm" onClick={() => loadAudit(0)}>
@@ -1027,7 +1075,7 @@ const ManagementDashboard = () => {
                             </Btn>
                         </div>
 
-                        {auditLoading ? <LoadingState message="Loading audit log…" /> : (
+                        {auditLoading ? <LoadingState message="Loading audit logâ€¦" /> : (
                             <SectionCard>
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
@@ -1050,7 +1098,7 @@ const ManagementDashboard = () => {
                                                     onClick={() => setAuditDetail(e)}
                                                 >
                                                     <td className="px-4 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.actor_username || '—'}</td>
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.actor_username || 'â€”'}</td>
                                                     <td className="px-4 py-3">
                                                         <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${ACTION_COLORS[e.action] || 'bg-gray-50 text-gray-600'}`}>
                                                             {e.action}
@@ -1059,7 +1107,7 @@ const ManagementDashboard = () => {
                                                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                                                         <span className="font-medium text-gray-700">{e.target_entity}</span> #{e.target_id}
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-gray-400 max-w-[200px] truncate">{e.details || '—'}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-400 max-w-[200px] truncate">{e.details || 'â€”'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1090,6 +1138,65 @@ const ManagementDashboard = () => {
                 )}
             </div>
 
+            {/* Edit Department Modal */}
+            {editDept && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditDept(null)} />
+                    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                        <div className="h-1 bg-indigo-600 w-full" />
+                        <div className="p-6 space-y-4">
+                            <h2 className="font-display font-bold text-base text-gray-900">Edit Department</h2>
+                            <form onSubmit={saveDept} className="space-y-4">
+                                <Field label="Name" required>
+                                    <Input value={editDept.name} onChange={(e) => setEditDept({ ...editDept, name: e.target.value })} placeholder="Department name" required />
+                                </Field>
+                                <Field label="Code" required>
+                                    <Input value={editDept.code} onChange={(e) => setEditDept({ ...editDept, code: e.target.value.toUpperCase() })} placeholder="e.g. CSE" required />
+                                </Field>
+                                <div className="flex gap-3 pt-1">
+                                    <Btn variant="secondary" type="button" onClick={() => setEditDept(null)} className="flex-1 justify-center">Cancel</Btn>
+                                    <Btn type="submit" disabled={editDeptLoading} className="flex-1 justify-center">
+                                        {editDeptLoading ? 'Saving\u2026' : 'Save Changes'}
+                                    </Btn>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Class Modal */}
+            {editClass && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditClass(null)} />
+                    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                        <div className="h-1 bg-indigo-600 w-full" />
+                        <div className="p-6 space-y-4">
+                            <h2 className="font-display font-bold text-base text-gray-900">Edit Class</h2>
+                            <form onSubmit={saveClass} className="space-y-4">
+                                <Field label="Display Name" required>
+                                    <Input value={editClass.display_name} onChange={(e) => setEditClass({ ...editClass, display_name: e.target.value })} placeholder="e.g. CSE-A" required />
+                                </Field>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Field label="Year of Study" required>
+                                        <Input value={editClass.year_of_study} onChange={(e) => setEditClass({ ...editClass, year_of_study: e.target.value })} placeholder="e.g. 2nd Year" required />
+                                    </Field>
+                                    <Field label="Section" required>
+                                        <Input value={editClass.section} onChange={(e) => setEditClass({ ...editClass, section: e.target.value })} placeholder="e.g. A" required />
+                                    </Field>
+                                </div>
+                                <div className="flex gap-3 pt-1">
+                                    <Btn variant="secondary" type="button" onClick={() => setEditClass(null)} className="flex-1 justify-center">Cancel</Btn>
+                                    <Btn type="submit" disabled={editClassLoading} className="flex-1 justify-center">
+                                        {editClassLoading ? 'Saving\u2026' : 'Save Changes'}
+                                    </Btn>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Promote Students Modal */}
             {promoteSource && (
                 <Modal title={`Promote Students from ${promoteSource.name}`} onClose={() => setPromoteSource(null)}>
@@ -1100,7 +1207,7 @@ const ManagementDashboard = () => {
                                 onChange={(e) => setPromoteTargetId(e.target.value)}
                                 required
                             >
-                                <option value="">Select target year…</option>
+                                <option value="">Select target yearâ€¦</option>
                                 {academicYears
                                     .filter((y) => y.id !== promoteSource.id)
                                     .map((y) => <option key={y.id} value={y.id}>{y.name}</option>)
@@ -1124,19 +1231,19 @@ const ManagementDashboard = () => {
                                         onChange={(e) => updateClassMapping(i, 'from_class_id', e.target.value)}
                                         className="flex-1"
                                     >
-                                        <option value="">From class…</option>
+                                        <option value="">From classâ€¦</option>
                                         {classes
                                             .filter((c) => c.academic_year_id === promoteSource.id || String(c.academic_year_id) === String(promoteSource.id))
                                             .map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)
                                         }
                                     </Select>
-                                    <span className="text-gray-400 text-sm">→</span>
+                                    <span className="text-gray-400 text-sm">â†’</span>
                                     <Select
                                         value={mapping.to_class_id}
                                         onChange={(e) => updateClassMapping(i, 'to_class_id', e.target.value)}
                                         className="flex-1"
                                     >
-                                        <option value="">To class…</option>
+                                        <option value="">To classâ€¦</option>
                                         {classes
                                             .filter((c) => promoteTargetId && (c.academic_year_id === promoteTargetId || String(c.academic_year_id) === String(promoteTargetId)))
                                             .map((c) => <option key={c.id} value={c.id}>{c.display_name}</option>)
@@ -1147,7 +1254,7 @@ const ManagementDashboard = () => {
                                             type="button"
                                             onClick={() => removeClassMapping(i)}
                                             className="px-2 py-1 text-xs font-medium text-red-500 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
-                                        >✕</button>
+                                        >âœ•</button>
                                     )}
                                 </div>
                             ))}
@@ -1158,7 +1265,7 @@ const ManagementDashboard = () => {
 
                         <Field label="Notes (optional)">
                             <Input
-                                placeholder="Optional notes about this promotion…"
+                                placeholder="Optional notes about this promotionâ€¦"
                                 value={promoteNotes}
                                 onChange={(e) => setPromoteNotes(e.target.value)}
                             />
@@ -1167,7 +1274,7 @@ const ManagementDashboard = () => {
                         <div className="flex gap-3 justify-end pt-2">
                             <Btn variant="secondary" type="button" onClick={() => setPromoteSource(null)}>Cancel</Btn>
                             <Btn type="submit" disabled={promoteLoading || !promoteTargetId}>
-                                {promoteLoading ? 'Promoting…' : 'Promote Students'}
+                                {promoteLoading ? 'Promotingâ€¦' : 'Promote Students'}
                             </Btn>
                         </div>
                     </form>
@@ -1180,10 +1287,10 @@ const ManagementDashboard = () => {
                     <div className="space-y-3">
                         {[
                             { label: 'Timestamp',  value: new Date(auditDetail.created_at).toLocaleString() },
-                            { label: 'Actor',      value: auditDetail.actor_username || '—' },
+                            { label: 'Actor',      value: auditDetail.actor_username || 'â€”' },
                             { label: 'Action',     value: auditDetail.action },
                             { label: 'Target',     value: `${auditDetail.target_entity} #${auditDetail.target_id}` },
-                            { label: 'Details',    value: auditDetail.details || '—' },
+                            { label: 'Details',    value: auditDetail.details || 'â€”' },
                         ].map(f => (
                             <div key={f.label}>
                                 <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">{f.label}</p>

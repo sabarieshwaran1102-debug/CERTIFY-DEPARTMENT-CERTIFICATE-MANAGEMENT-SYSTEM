@@ -13,6 +13,40 @@ const RUN = Date.now().toString(36).slice(-6).toUpperCase();
 let seq = 0;
 const uid = (label) => ('C' + RUN + label.slice(0,3) + String(++seq).padStart(3,'0')).slice(0,20);
 
+// ── Dynamic date helpers ──────────────────────────────────────────────────────
+// Produces a YYYY-MM-DD string offset by `monthOffset` whole months from today.
+// dayOfMonth is clamped to the actual month length to prevent overflow.
+const isoDate = (monthOffset = 0, dayOfMonth = 10) => {
+  const d = new Date();
+  d.setDate(1); // prevent day-overflow when changing month
+  d.setMonth(d.getMonth() + monthOffset);
+  const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(dayOfMonth, maxDay));
+  return d.toISOString().slice(0, 10);
+};
+
+// ① Normal OD  — event NEXT calendar month; deadline = last day of that month (always future)
+const OD_DATE_NORMAL  = isoDate(+1, 10);
+// ② Late OD    — event 6 months ago; deadline = last day of that month (always past)
+const OD_DATE_LATE    = isoDate(-6, 15);
+// ③ Late OD-2  — 2 years ago (student-cannot-approve-own test)
+const OD_DATE_LATE2   = isoDate(-24, 1);
+// ④ Late OD-3  — 3 years ago (reject-late test)
+const OD_DATE_LATE3   = isoDate(-36, 1);
+// ⑤ Reject OD  — 2 months future; deadline safely future
+const OD_DATE_REJECT  = isoDate(+2, 1);
+// ⑥ Access OD  — 1 month future; deadline safely future
+const OD_DATE_ACCESS  = isoDate(+1, 20);
+// ⑦ Overdue OD — 3 years ago; deadline definitely in the past
+const OD_DATE_OVERDUE = isoDate(-36, 1);
+// Last day of the month 3 years ago — used as the explicit past deadline in the overdue INSERT
+const OD_DEADLINE_OVERDUE = (() => {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 36);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+})();
+
 // ── Shared state ──────────────────────────────────────────────────────────────
 let adminToken, advisorToken, superAdminToken, studentToken, crToken;
 let adminUserId, advisorUserId, superAdminUserId, studentUserId;
@@ -102,7 +136,6 @@ beforeAll(async () => {
     'INSERT INTO students (register_number,name,department,year,section,date_of_birth,class_id,academic_year_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING student_id',
     [npReg,'Non Part Stu','CertDept','1st Year','A','2003-04-01',testClassId,testYearId]);
   nonParticipantStudentId = np.rows[0].student_id;
-  // Create a login for the non-participant so the 403 test can actually authenticate
   await pool.query('INSERT INTO users (username,role,student_id,password_hash) VALUES ($1,$2,$3,$4)',
     [npReg,'student',nonParticipantStudentId,await bcrypt.hash('2003-04-01',12)]);
 
@@ -120,14 +153,15 @@ beforeAll(async () => {
   crUserId = crUser.rows[0].user_id;
   crToken = (await login(crReg,'2003-05-01','class_representative')).token;
 
-  // Create an OD with both students as participants
+  // Create the main OD — event_date is NEXT month so deadline is always in the future.
+  // This ensures on-time certificate submissions are not treated as late.
   const odRes = await api(adminToken).post('/api/ods', {
     class_id: testClassId,
     event_name: 'CertTest Event '+RUN,
     event_type: 'conference',
-    event_date: '2026-09-10',
-    od_start_date: '2026-09-10',
-    od_end_date: '2026-09-10',
+    event_date: OD_DATE_NORMAL,
+    od_start_date: OD_DATE_NORMAL,
+    od_end_date: OD_DATE_NORMAL,
     purpose: 'Phase 4 cert test',
     venue: 'Test Venue',
     student_ids: [participantStudentId, crStudentId],
@@ -138,7 +172,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
-    // Remove cert versions first
     await pool.query('DELETE FROM certificate_versions WHERE od_certificate_id IN (SELECT id FROM od_certificates WHERE od_id=$1)',[testOdId]);
     await pool.query('DELETE FROM od_certificates WHERE od_id=$1',[testOdId]);
     await pool.query('DELETE FROM od_participants WHERE od_id=$1',[testOdId]);
@@ -163,6 +196,8 @@ afterAll(async () => {
 // 1. DEADLINE LOGIC UNIT TESTS
 // =============================================================================
 describe('Deadline calculation', () => {
+  // These tests exercise the computeDeadline() function directly with fixed inputs.
+  // They are NOT database scenarios and must NOT use dynamic dates.
   test('deadline is last day of the OD end-date month', () => {
     expect(computeDeadline('2026-09-10')).toBe('2026-09-30');
     expect(computeDeadline('2026-02-15')).toBe('2026-02-28');
@@ -207,7 +242,6 @@ describe('Certificate submission', () => {
   });
 
   test('Non-participant student cannot submit for this OD', async () => {
-    // Login as non-participant
     const npLogin = await login(
       (await pool.query('SELECT register_number FROM students WHERE student_id=$1',[nonParticipantStudentId])).rows[0].register_number,
       '2003-04-01','student'
@@ -266,7 +300,7 @@ describe('Certificate replacement', () => {
   let certIdForReplace;
 
   beforeAll(async () => {
-    // Use crStudent's slot for this test (participant, different from studentToken)
+    // Use crStudent's participant slot — same main OD whose deadline is in the future.
     const firstUpload = await request(app).post('/api/od-certificates')
       .set('Authorization','Bearer '+crToken)
       .field('od_id', String(testOdId))
@@ -311,14 +345,14 @@ describe('Late submission', () => {
   let lateOdId, lateCertId;
 
   beforeAll(async () => {
-    // Create a separate OD with a past event date so deadline has passed
+    // Create a separate OD 6 months in the past so its deadline has definitely passed.
     const odRes = await api(adminToken).post('/api/ods', {
       class_id: testClassId,
       event_name: 'Late Test OD '+RUN,
       event_type: 'workshop',
-      event_date: '2020-01-15',
-      od_start_date: '2020-01-15',
-      od_end_date: '2020-01-15',
+      event_date: OD_DATE_LATE,
+      od_start_date: OD_DATE_LATE,
+      od_end_date: OD_DATE_LATE,
       purpose: 'late cert test',
       venue: 'Venue',
       student_ids: [participantStudentId],
@@ -369,10 +403,10 @@ describe('Late submission', () => {
   });
 
   test('Student cannot approve their own late submission', async () => {
-    // Create another late submission for reject test
+    // OD 2 years in the past — deadline is definitely expired
     const odRes2 = await api(adminToken).post('/api/ods', {
       class_id: testClassId, event_name: 'Late2 '+RUN, event_type: 'symposium',
-      event_date: '2019-06-01', od_start_date: '2019-06-01', od_end_date: '2019-06-01',
+      event_date: OD_DATE_LATE2, od_start_date: OD_DATE_LATE2, od_end_date: OD_DATE_LATE2,
       purpose: 'test', venue: 'V', student_ids: [participantStudentId],
     });
     const od2Id = odRes2.body.id;
@@ -386,7 +420,6 @@ describe('Late submission', () => {
     const reject = await api(studentToken).patch('/api/od-certificates/'+cid+'/approve-late');
     expect(reject.status).toBe(403);
 
-    // Cleanup
     await pool.query('DELETE FROM certificate_versions WHERE od_certificate_id=$1',[cid]);
     await pool.query('DELETE FROM od_certificates WHERE id=$1',[cid]);
     await pool.query('DELETE FROM od_participants WHERE od_id=$1',[od2Id]);
@@ -394,10 +427,10 @@ describe('Late submission', () => {
   });
 
   test('Reject-late requires reason', async () => {
-    // Create a fresh late submission to reject
+    // OD 3 years in the past — deadline definitely expired
     const odRes3 = await api(adminToken).post('/api/ods', {
       class_id: testClassId, event_name: 'Late3 '+RUN, event_type: 'other',
-      event_date: '2018-03-01', od_start_date: '2018-03-01', od_end_date: '2018-03-01',
+      event_date: OD_DATE_LATE3, od_start_date: OD_DATE_LATE3, od_end_date: OD_DATE_LATE3,
       purpose: 'test', venue: 'V', student_ids: [participantStudentId],
     });
     const od3Id = odRes3.body.id;
@@ -414,7 +447,6 @@ describe('Late submission', () => {
     expect(r2.status).toBe(200);
     expect(r2.body.status).toBe('rejected');
 
-    // Cleanup
     await pool.query('DELETE FROM certificate_versions WHERE od_certificate_id=$1',[cid3]);
     await pool.query('DELETE FROM od_certificates WHERE id=$1',[cid3]);
     await pool.query('DELETE FROM od_participants WHERE od_id=$1',[od3Id]);
@@ -434,7 +466,7 @@ describe('Certificate verify and reject', () => {
     const certForStudent = certs.body.data.find(c => Number(c.student_id) === Number(participantStudentId));
     if (!certForStudent) throw new Error('Cert for participant not found');
     verifyCertId = certForStudent.id;
-    rejectCertId = certForStudent.id; // same cert, will verify then see reject fails
+    rejectCertId = certForStudent.id;
   });
 
   test('Admin can verify a submitted certificate', async () => {
@@ -466,27 +498,24 @@ describe('Certificate verify and reject', () => {
   });
 
   test('Reject requires a reason', async () => {
-    // Make a fresh OD + cert to reject
+    // Fresh OD 2 months in the future — deadline is safely in the future for on-time submission
     const odRes = await api(adminToken).post('/api/ods', {
       class_id: testClassId, event_name: 'RejectTest '+RUN, event_type: 'conference',
-      event_date: '2026-11-01', od_start_date: '2026-11-01', od_end_date: '2026-11-01',
+      event_date: OD_DATE_REJECT, od_start_date: OD_DATE_REJECT, od_end_date: OD_DATE_REJECT,
       purpose: 'reject test', venue: 'V', student_ids: [participantStudentId],
     });
     const rOdId = odRes.body.id;
     const up = await uploadCert(studentToken, rOdId);
     const rCertId = up.body.id;
 
-    // Reject without reason
     const r1 = await api(adminToken).patch('/api/od-certificates/'+rCertId+'/reject', {});
     expect(r1.status).toBe(400);
 
-    // Reject with reason
     const r2 = await api(adminToken).patch('/api/od-certificates/'+rCertId+'/reject', { reason: 'Wrong event certificate' });
     expect(r2.status).toBe(200);
     expect(r2.body.status).toBe('rejected');
     expect(r2.body.rejection_reason).toBe('Wrong event certificate');
 
-    // Cleanup
     await pool.query('DELETE FROM certificate_versions WHERE od_certificate_id=$1',[rCertId]);
     await pool.query('DELETE FROM od_certificates WHERE id=$1',[rCertId]);
     await pool.query('DELETE FROM od_participants WHERE od_id=$1',[rOdId]);
@@ -501,7 +530,6 @@ describe('Access control', () => {
   test('Student can only see own certificates', async () => {
     const r = await api(studentToken).get('/api/od-certificates');
     expect(r.status).toBe(200);
-    // Every cert returned must belong to this student
     r.body.data.forEach(c => expect(Number(c.student_id)).toBe(Number(participantStudentId)));
   });
 
@@ -523,10 +551,9 @@ describe('Access control', () => {
   });
 
   test('Student cannot access another student cert by ID', async () => {
-    // Get CR cert id
     const certs = await api(adminToken).get('/api/od-certificates', { od_id: testOdId });
     const crCert = certs.body.data.find(c => Number(c.student_id) === Number(crStudentId));
-    if (!crCert) return; // skip if not found
+    if (!crCert) return;
     const r = await api(studentToken).get('/api/od-certificates/'+crCert.id);
     expect(r.status).toBe(403);
   });
@@ -538,10 +565,10 @@ describe('Access control', () => {
   });
 
   test('Student accessing OD certs must be participant', async () => {
-    // Create another OD without this student
+    // OD 1 month in the future — not this student's OD
     const od2Res = await api(adminToken).post('/api/ods', {
       class_id: testClassId, event_name: 'NoAccess '+RUN, event_type: 'other',
-      event_date: '2026-10-01', od_start_date: '2026-10-01', od_end_date: '2026-10-01',
+      event_date: OD_DATE_ACCESS, od_start_date: OD_DATE_ACCESS, od_end_date: OD_DATE_ACCESS,
       purpose: 'test', venue: 'V', student_ids: [crStudentId],
     });
     const od2Id = od2Res.body.id;
@@ -594,19 +621,19 @@ describe('Pagination and filters', () => {
 // =============================================================================
 describe('Overdue marking', () => {
   test('Pending certs with past deadlines are marked overdue on list request', async () => {
-    // Create an OD in the past without submitting a certificate — should become overdue
+    // OD 3 years in the past — deadline is definitely expired
     const odRes = await api(adminToken).post('/api/ods', {
       class_id: testClassId, event_name: 'OverdueTest '+RUN, event_type: 'internship',
-      event_date: '2021-05-01', od_start_date: '2021-05-01', od_end_date: '2021-05-01',
+      event_date: OD_DATE_OVERDUE, od_start_date: OD_DATE_OVERDUE, od_end_date: OD_DATE_OVERDUE,
       purpose: 'overdue test', venue: 'V', student_ids: [participantStudentId],
     });
     const ovOdId = odRes.body.id;
 
-    // Manually insert a pending cert with a past deadline
+    // Manually insert a pending cert with a past deadline (last day of the month 3 years ago)
     await pool.query(
       `INSERT INTO od_certificates (od_id,student_id,file_name,file_path,file_size,file_type,status,deadline,is_late,submitted_by,version)
-       VALUES ($1,$2,'test.pdf','/tmp/test.pdf',100,'application/pdf','pending','2021-05-31',false,$3,1)`,
-      [ovOdId, participantStudentId, studentUserId]
+       VALUES ($1,$2,'test.pdf','/tmp/test.pdf',100,'application/pdf','pending',$3,false,$4,1)`,
+      [ovOdId, participantStudentId, OD_DEADLINE_OVERDUE, studentUserId]
     );
 
     // Trigger GET /ods/:odId which calls markOverdue
@@ -615,7 +642,6 @@ describe('Overdue marking', () => {
     const cert = r.body.data[0];
     expect(cert.status).toBe('overdue');
 
-    // Cleanup
     await pool.query('DELETE FROM od_certificates WHERE od_id=$1',[ovOdId]);
     await pool.query('DELETE FROM od_participants WHERE od_id=$1',[ovOdId]);
     await pool.query('DELETE FROM ods WHERE id=$1',[ovOdId]);

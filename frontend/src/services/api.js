@@ -9,27 +9,32 @@ const apiClient = axios.create({
     },
 });
 
-// Token helpers — sessionStorage clears on tab/browser close, reducing
-// the window of exposure compared with localStorage.
+// Token helpers - sessionStorage clears on tab/browser close.
 export const tokenStore = {
     get: () => sessionStorage.getItem('token'),
     set: (t) => sessionStorage.setItem('token', t),
     remove: () => sessionStorage.removeItem('token'),
 };
 
-// Request interceptor — attach JWT
+// Request interceptor - attach JWT and fix FormData Content-Type.
 apiClient.interceptors.request.use(
     (config) => {
         const token = tokenStore.get();
         if (token) {
             config.headers.Authorization = Bearer ;
         }
+        // When body is FormData, remove the default Content-Type so the browser
+        // sets the correct multipart/form-data boundary automatically.
+        // Manually setting 'multipart/form-data' without the boundary breaks multer.
+        if (config.data instanceof FormData) {
+            delete config.headers['Content-Type'];
+        }
         return config;
     },
     (error) => Promise.reject(error)
 );
 
-// Response interceptor — clear token and redirect on 401
+// Response interceptor - clear token and redirect on 401.
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
